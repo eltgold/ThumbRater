@@ -1,0 +1,5 @@
+{
+  "name": "eyy ricedroid",
+  "description": "Analyze YouTube thumbnails for click-through potential using Gemini 2.5 Vision. Get scores, insights, and improvement suggestions instantly.",
+  "requestFramePermissions": []
+}

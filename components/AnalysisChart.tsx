@@ -16,22 +16,25 @@ export const AnalysisChart: React.FC<AnalysisChartProps> = ({ scores }) => {
   ];
 
   return (
-    <div className="w-full h-full bg-yellow-100 border-thick rounded-xl p-2 font-sans">
+    <div className="w-full h-full bg-white border-[3px] border-black p-2 font-sans relative">
+      {/* Tape Visual */}
+      <div className="absolute -top-4 right-1/2 translate-x-1/2 w-24 h-6 bg-[#fcd34d] opacity-80 border-2 border-black rotate-[-2deg] z-10"></div>
+      
       <ResponsiveContainer width="100%" height="100%">
-        <RadarChart cx="50%" cy="50%" outerRadius="70%" data={data}>
+        <RadarChart cx="50%" cy="50%" outerRadius="65%" data={data}>
           <PolarGrid stroke="#000" strokeWidth={2} />
           <PolarAngleAxis 
             dataKey="subject" 
-            tick={{ fill: '#000', fontSize: 13, fontWeight: '900', fontFamily: 'Comic Neue, Comic Sans MS' }} 
+            tick={{ fill: '#000', fontSize: 12, fontWeight: '900', fontFamily: '"Comic Neue", cursive', textTransform: 'uppercase' }} 
           />
           <PolarRadiusAxis angle={30} domain={[0, 10]} tick={false} axisLine={false} />
           <Radar
             name="Score"
             dataKey="A"
-            stroke="#ec4899" /* Pink 500 */
-            strokeWidth={4}
-            fill="#ec4899"
-            fillOpacity={0.6}
+            stroke="#000"
+            strokeWidth={3}
+            fill="#ec4899" /* Pink 500 */
+            fillOpacity={0.8}
             isAnimationActive={true}
           />
           <Tooltip 
@@ -42,10 +45,10 @@ export const AnalysisChart: React.FC<AnalysisChartProps> = ({ scores }) => {
               color: '#000',
               borderRadius: '0px',
               fontWeight: 'bold',
-              fontFamily: 'Comic Neue, Comic Sans MS',
+              fontFamily: '"Comic Neue", cursive',
               boxShadow: '4px 4px 0px 0px #000'
             }}
-            itemStyle={{ color: '#ec4899' }}
+            itemStyle={{ color: '#ec4899', fontWeight: '900' }}
             cursor={{ stroke: '#000', strokeWidth: 2 }}
           />
         </RadarChart>

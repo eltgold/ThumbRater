@@ -5,25 +5,34 @@ interface ScoreCardProps {
   label: string;
   score: number;
   icon?: React.ReactNode;
+  rotation?: string; // e.g. 'rotate-1' or 'rotate-[-2deg]'
+  color?: string;
 }
 
-export const ScoreCard: React.FC<ScoreCardProps> = ({ label, score, icon }) => {
+export const ScoreCard: React.FC<ScoreCardProps> = ({ label, score, icon, rotation = 'rotate-0', color }) => {
   const getColor = (s: number) => {
-    if (s >= 8) return 'bg-green-300';
-    if (s >= 5) return 'bg-yellow-300';
-    return 'bg-red-300';
+    if (color) return color;
+    if (s >= 8) return 'bg-[#86efac]'; // Green 300 equivalent
+    if (s >= 5) return 'bg-[#fde047]'; // Yellow 300 equivalent
+    return 'bg-[#fca5a5]'; // Red 300 equivalent
   };
 
   const bgClass = getColor(score);
 
   return (
     <div className={clsx(
-      "flex flex-col items-center justify-center p-3 rounded-xl border-thick transition-all duration-300 hard-shadow hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none",
-      bgClass
+      "relative flex flex-col items-center justify-center p-4 border-[3px] border-black hard-shadow transition-transform hover:scale-105 hover:z-10",
+      bgClass,
+      rotation
     )}>
+      {/* Tape Visual */}
+      <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-8 h-4 bg-white/50 border border-black/20 rotate-1 backdrop-blur-sm z-10"></div>
+      
       {icon && <div className="mb-1 scale-90 text-black">{icon}</div>}
-      <span className="text-4xl font-bold tracking-tighter text-black">{score}</span>
-      <span className="text-xs font-bold uppercase tracking-wider text-black border-t-2 border-black pt-1 mt-1 w-full text-center">{label}</span>
+      <span className="text-5xl font-black tracking-tighter text-black drop-shadow-sm">{score}</span>
+      <span className="text-xs font-black uppercase tracking-widest text-black border-t-[3px] border-black pt-1 mt-1 w-full text-center bg-white/30">
+        {label}
+      </span>
     </div>
   );
 };

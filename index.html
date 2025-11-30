@@ -10,16 +10,24 @@
         theme: {
           extend: {
             fontFamily: {
-              sans: ['"Comic Neue"', '"Comic Sans MS"', 'cursive', 'sans-serif'],
+              sans: ['"Comic Sans MS"', '"Comic Sans"', '"Comic Neue"', 'cursive', 'sans-serif'],
             },
+            fontWeight: {
+              bold: '700',
+              black: '700', // Map black to bold because Comic Sans doesn't have 900 weight
+            }
           },
         },
       }
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&display=swap" rel="stylesheet">
     <style>
+      /* FORCE COMIC SANS EVERYWHERE NO MATTER WHAT */
+      * {
+        font-family: 'Comic Sans MS', 'Comic Sans', 'Comic Neue', cursive, sans-serif !important;
+      }
+      
       body {
-        font-family: 'Comic Neue', 'Comic Sans MS', sans-serif;
         background-color: #fdfdfd;
         color: #000;
         overflow-x: hidden;
@@ -66,6 +74,11 @@
       .border-thick {
         border-width: 3px;
         border-color: #000;
+      }
+      
+      .mask-stamp {
+        mask-image: url("data:image/svg+xml,%3Csvg width='200' height='200' viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.5'/%3E%3C/svg%3E");
+        mask-mode: alpha;
       }
     </style>
   <script type="importmap">

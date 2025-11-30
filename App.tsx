@@ -40,6 +40,17 @@ import clsx from 'clsx';
 
 const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: "v2.13",
+    date: "2025-12-07",
+    title: "Comic Sans Emergency",
+    changes: [
+      "Fixed Font Weights (No more broken Arial).",
+      "Forced Comic Sans on Inputs.",
+      "Fixed the Receipt Font.",
+      "Patched the Patch Notes."
+    ]
+  },
+  {
     version: "v2.12",
     date: "2025-12-07",
     title: "THE GREAT REVERT",
@@ -68,20 +79,12 @@ const CHANGELOG_DATA: ChangelogEntry[] = [
       "Added Hammer Logo.",
       "Added Chaos Mode.",
     ]
-  },
-  {
-    version: "v2.1",
-    date: "2025-12-05",
-    title: "RICETOOL Rebrand",
-    changes: [
-      "Project Renamed: RICETOOL.",
-    ]
   }
 ];
 
 type ActiveTab = 'RATER' | 'BOT_HUNTER';
 
-// --- CUSTOM LOGO COMPONENT ---
+// --- CUSTOM COMPONENTS ---
 const SmashLogo = () => (
     <div className="relative group w-10 h-10 flex items-center justify-center cursor-pointer">
         <div className="absolute inset-0 bg-red-600 rounded-xl border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] group-hover:translate-y-1 group-hover:shadow-none transition-all duration-100 flex items-center justify-center overflow-hidden">
@@ -89,10 +92,14 @@ const SmashLogo = () => (
              <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent pointer-events-none"></div>
         </div>
         <Hammer className="absolute -top-3 -right-3 w-8 h-8 text-black fill-zinc-300 drop-shadow-sm transition-transform duration-100 origin-bottom-left group-hover:rotate-[-45deg] z-10" />
-        <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-black uppercase text-black opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-yellow-300 px-1 border border-black rotate-[-5deg] font-sans">
+        <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase text-black opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-yellow-300 px-1 border border-black rotate-[-5deg] font-sans">
            BONK!
         </div>
     </div>
+);
+
+const Tape = ({ className }: { className?: string }) => (
+    <div className={clsx("absolute w-24 h-8 bg-white/60 border border-black/10 rotate-[-3deg] backdrop-blur-sm shadow-sm z-20", className)}></div>
 );
 
 const App: React.FC = () => {
@@ -488,16 +495,17 @@ const App: React.FC = () => {
       {/* Save Modal */}
       {showSaveModal && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4 font-sans">
-           <div className="bg-white border-thick p-6 max-w-sm w-full hard-shadow rounded-none">
-              <h2 className="text-xl font-bold mb-6 text-black border-b-2 border-black pb-2">SAVE ANALYSIS?</h2>
+           <div className="bg-white border-[3px] border-black p-6 max-w-sm w-full hard-shadow rounded-none rotate-1">
+              <Tape className="-top-4 left-1/2 -translate-x-1/2" />
+              <h2 className="text-xl font-bold mb-6 text-black border-b-[3px] border-black pb-2 text-center uppercase">Save Analysis?</h2>
               <div className="flex flex-col gap-3">
-                <button onClick={handleSaveToApp} className="flex items-center justify-center gap-3 bg-yellow-300 hover:bg-yellow-400 text-black p-4 font-bold border-thick hard-shadow-sm transition-transform active:translate-y-1 active:shadow-none">
-                   <HardDrive className="w-5 h-5" /> SAVE TO VAULT
+                <button onClick={handleSaveToApp} className="flex items-center justify-center gap-3 bg-[#fde047] hover:bg-yellow-400 text-black p-4 font-bold border-[3px] border-black hard-shadow-sm transition-transform active:translate-y-1 active:shadow-none uppercase">
+                   <HardDrive className="w-5 h-5" /> Save to Vault
                 </button>
-                <button onClick={handleDownloadJSON} className="flex items-center justify-center gap-3 bg-cyan-300 hover:bg-cyan-400 text-black p-4 font-bold border-thick hard-shadow-sm transition-transform active:translate-y-1 active:shadow-none">
-                   <Download className="w-5 h-5" /> EXPORT JSON
+                <button onClick={handleDownloadJSON} className="flex items-center justify-center gap-3 bg-[#67e8f9] hover:bg-cyan-400 text-black p-4 font-bold border-[3px] border-black hard-shadow-sm transition-transform active:translate-y-1 active:shadow-none uppercase">
+                   <Download className="w-5 h-5" /> Export JSON
                 </button>
-                <button onClick={() => setShowSaveModal(false)} className="mt-2 text-black hover:underline font-bold text-sm">NEVERMIND</button>
+                <button onClick={() => setShowSaveModal(false)} className="mt-2 text-black hover:underline font-bold text-sm text-center">NEVERMIND</button>
               </div>
            </div>
         </div>
@@ -506,25 +514,26 @@ const App: React.FC = () => {
       {/* Store Modal */}
       {showStoreModal && (
         <div className="fixed inset-0 z-[115] flex items-center justify-center bg-black/50 p-4 font-sans">
-           <div className="bg-white border-thick w-full max-w-5xl max-h-[85vh] overflow-y-auto hard-shadow flex flex-col">
-              <div className="bg-yellow-300 sticky top-0 p-4 border-b-2 border-black flex justify-between items-center z-10">
+           <div className="bg-white border-[3px] border-black w-full max-w-5xl max-h-[85vh] overflow-y-auto hard-shadow flex flex-col rotate-[-1deg]">
+              <Tape className="-top-4 right-10 rotate-[2deg]" />
+              <div className="bg-[#fde047] sticky top-0 p-4 border-b-[3px] border-black flex justify-between items-center z-10">
                  <div className="flex items-center gap-3">
-                   <div className="p-2 bg-white border-2 border-black rounded-full"><ShoppingBag className="w-5 h-5 text-black" /></div>
-                   <h2 className="text-xl font-black text-black uppercase">Video Store</h2>
+                   <div className="p-2 bg-white border-2 border-black rounded-full shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"><ShoppingBag className="w-5 h-5 text-black" /></div>
+                   <h2 className="text-xl font-bold text-black uppercase tracking-tight">Video Store</h2>
                  </div>
-                 <button onClick={() => setShowStoreModal(false)} className="p-2 bg-red-500 hover:bg-red-600 border-2 border-black text-white font-bold transition-colors">
+                 <button onClick={() => setShowStoreModal(false)} className="p-2 bg-[#ef4444] hover:bg-red-600 border-2 border-black text-white font-bold transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-y-[2px]">
                    <X className="w-5 h-5" />
                  </button>
               </div>
               
               <div className="p-6 bg-dots">
                  <div className="flex gap-2 max-w-2xl mx-auto mb-8">
-                    <div className="flex-1 flex items-center bg-white border-thick px-4 h-12">
-                      <Search className="w-5 h-5 text-black mr-3" />
+                    <div className="flex-1 flex items-center bg-white border-[3px] border-black px-4 h-14 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                      <Search className="w-6 h-6 text-black mr-3" />
                       <input 
                         type="text" 
                         placeholder="SEARCH STUFF..."
-                        className="w-full bg-transparent outline-none text-black placeholder-zinc-500 font-bold"
+                        className="w-full bg-transparent outline-none text-black placeholder-zinc-500 font-bold text-lg uppercase caret-black"
                         value={storeQuery}
                         onChange={(e) => setStoreQuery(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleStoreSearch()}
@@ -532,41 +541,44 @@ const App: React.FC = () => {
                     </div>
                     <button 
                       onClick={handleStoreSearch} 
-                      className="bg-black text-white px-6 font-bold border-thick hover:bg-zinc-800 transition-colors"
+                      className="bg-black text-white px-8 font-bold text-xl border-[3px] border-black hover:bg-zinc-800 transition-colors shadow-[4px_4px_0px_0px_rgba(0,0,0,0)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)]"
                     >
                       {isStoreSearching ? <Loader2 className="animate-spin" /> : "GO"}
                     </button>
                  </div>
 
-                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                  {storeResults.length === 0 && !isStoreSearching && (
-                    <div className="col-span-full flex flex-col items-center justify-center text-center py-20 opacity-30">
-                       <ShoppingBag className="w-16 h-16 mb-4 stroke-2" />
-                       <p className="text-lg font-black">SEARCH SOMETHING BRO</p>
+                    <div className="col-span-full flex flex-col items-center justify-center text-center py-20 opacity-30 rotate-3">
+                       <ShoppingBag className="w-24 h-24 mb-4 stroke-[1.5]" />
+                       <p className="text-2xl font-bold uppercase">Search something bro</p>
                     </div>
                  )}
-                 {storeResults.map((item) => (
+                 {storeResults.map((item, idx) => (
                     <div 
                     key={item.id}
                     onClick={() => handleCopyLink(item)}
-                    className="group cursor-pointer bg-white border-thick hard-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all relative"
+                    className={clsx(
+                        "group cursor-pointer bg-white border-[3px] border-black hard-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all relative",
+                        idx % 2 === 0 ? "rotate-1" : "rotate-[-1deg]"
+                    )}
                     >
                       {copiedItemId === item.id && (
-                        <div className="absolute inset-0 bg-yellow-300 z-20 flex items-center justify-center flex-col animate-in fade-in duration-200 border-thick">
-                           <Check className="w-10 h-10 text-black" />
-                           <p className="text-black text-xs font-black mt-2 tracking-widest uppercase">COPIED!</p>
+                        <div className="absolute inset-0 bg-[#fde047] z-20 flex items-center justify-center flex-col animate-in fade-in duration-200 border-[3px] border-black">
+                           <Check className="w-12 h-12 text-black" />
+                           <p className="text-black text-sm font-bold mt-2 tracking-widest uppercase bg-white px-2 border-2 border-black rotate-[-2deg]">COPIED!</p>
                         </div>
                       )}
 
-                      <div className="aspect-video bg-black relative border-b-2 border-black">
+                      <div className="aspect-video bg-black relative border-b-[3px] border-black">
                           <img src={item.thumbnail} alt={item.title} className="w-full h-full object-cover" />
-                          <div className="absolute top-2 right-2 bg-white text-black text-[10px] font-black px-2 py-0.5 border-2 border-black rotate-3">
+                          <div className={clsx("absolute top-2 right-2 text-black text-[10px] font-bold px-2 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]", item.type === 'channel' ? "bg-[#f9a8d4] rotate-3" : "bg-white rotate-[-2deg]")}>
                              {item.type === 'channel' ? 'USER' : 'VID'}
                           </div>
                       </div>
-                      <div className="p-3">
-                         <h3 className="font-bold text-sm text-black line-clamp-2 mb-1" dangerouslySetInnerHTML={{ __html: item.title }}></h3>
-                         <p className="text-xs text-zinc-500 font-bold uppercase">{item.channelTitle}</p>
+                      <div className="p-3 bg-zinc-50">
+                         <h3 className="font-bold text-sm text-black line-clamp-2 mb-1 leading-tight" dangerouslySetInnerHTML={{ __html: item.title }}></h3>
+                         <p className="text-xs text-zinc-500 font-bold uppercase tracking-wide">{item.channelTitle}</p>
                       </div>
                     </div>
                 ))}
@@ -579,53 +591,54 @@ const App: React.FC = () => {
       {/* Saved List Modal (The Vault) */}
       {showSavedList && (
         <div className="fixed inset-0 z-[115] flex items-center justify-center bg-black/50 p-4 font-sans">
-           <div className="bg-white border-thick w-full max-w-3xl max-h-[85vh] overflow-y-auto hard-shadow flex flex-col">
-              <div className="bg-cyan-300 sticky top-0 p-4 border-b-2 border-black flex justify-between items-center z-10">
+           <div className="bg-white border-[3px] border-black w-full max-w-3xl max-h-[85vh] overflow-y-auto hard-shadow flex flex-col rotate-1">
+              <Tape className="-top-4 left-10 rotate-[-2deg]" />
+              <div className="bg-[#67e8f9] sticky top-0 p-4 border-b-[3px] border-black flex justify-between items-center z-10">
                  <div className="flex items-center gap-3">
-                   <div className="p-2 bg-white border-2 border-black rounded-full"><FolderOpen className="w-5 h-5 text-black" /></div>
-                   <h2 className="text-xl font-black text-black uppercase">The Vault</h2>
+                   <div className="p-2 bg-white border-2 border-black rounded-full shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"><FolderOpen className="w-5 h-5 text-black" /></div>
+                   <h2 className="text-xl font-bold text-black uppercase tracking-tight">The Vault</h2>
                  </div>
                  <div className="flex gap-3">
-                     <button onClick={() => importInputRef.current?.click()} className="text-xs font-bold text-black flex items-center gap-2 px-3 py-1.5 bg-white border-2 border-black hover:bg-gray-100 transition-colors">
+                     <button onClick={() => importInputRef.current?.click()} className="text-xs font-bold text-black flex items-center gap-2 px-3 py-1.5 bg-white border-2 border-black hover:bg-gray-100 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-y-[2px]">
                         <CloudUpload className="w-4 h-4" /> IMPORT
                      </button>
-                     <button onClick={() => setShowSavedList(false)} className="p-2 bg-red-500 hover:bg-red-600 border-2 border-black text-white font-bold transition-colors">
+                     <button onClick={() => setShowSavedList(false)} className="p-2 bg-[#ef4444] hover:bg-red-600 border-2 border-black text-white font-bold transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-y-[2px]">
                        <X className="w-5 h-5" />
                      </button>
                  </div>
               </div>
               
-              <div className="p-6 bg-dots grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-6 bg-dots grid grid-cols-1 md:grid-cols-2 gap-6">
                  {savedItems.length === 0 ? (
-                    <div className="col-span-full text-center py-20 text-black font-bold text-xl">VAULT IS EMPTY</div>
+                    <div className="col-span-full text-center py-20 text-black font-bold text-2xl uppercase opacity-40 rotate-[-2deg]">Vault is Empty</div>
                  ) : (
-                    savedItems.map((item) => (
-                      <div key={item.id} className="bg-white border-thick p-4 hard-shadow-sm hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all flex flex-col gap-3 group">
-                         <div className="flex justify-between items-start">
-                            <span className={clsx("text-[10px] font-black uppercase tracking-wider px-2 py-1 border-2 border-black", item.type === 'THUMB_RATER' ? "bg-pink-300" : "bg-green-300")}>
+                    savedItems.map((item, idx) => (
+                      <div key={item.id} className={clsx("bg-white border-[3px] border-black p-4 hard-shadow-sm hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all flex flex-col gap-3 group relative", idx % 2 === 0 ? "rotate-1" : "rotate-[-1deg]")}>
+                         <div className="flex justify-between items-start border-b-2 border-black pb-2 mb-1 border-dashed">
+                            <span className={clsx("text-[10px] font-bold uppercase tracking-wider px-2 py-1 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]", item.type === 'THUMB_RATER' ? "bg-[#f9a8d4]" : "bg-[#86efac]")}>
                               {item.type === 'THUMB_RATER' ? 'RATER' : 'BOT'}
                             </span>
-                            <button onClick={() => deleteSavedItem(item.id)} className="text-black hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                            <button onClick={() => deleteSavedItem(item.id)} className="text-black hover:text-[#ef4444] transition-colors"><Trash2 className="w-5 h-5" /></button>
                          </div>
                          
                          {item.type === 'THUMB_RATER' ? (
                            <>
-                             <div className="aspect-video bg-black border-2 border-black overflow-hidden">
+                             <div className="aspect-video bg-black border-2 border-black overflow-hidden rotate-1">
                                <img src={`data:image/jpeg;base64,${item.thumbnailBase64}`} className="w-full h-full object-cover" />
                              </div>
-                             <div className="flex justify-between items-center">
+                             <div className="flex justify-between items-center mt-1">
                                 <h3 className="font-bold text-sm text-black truncate pr-4">{item.videoTitle || "Untitled"}</h3>
-                                <div className="bg-black px-2 py-1 text-white text-xs font-bold rotate-2">{item.thumbnailResult?.scores.overall}/10</div>
+                                <div className="bg-black px-2 py-1 text-white text-xs font-bold rotate-3 border-2 border-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">{item.thumbnailResult?.scores.overall}/10</div>
                              </div>
                            </>
                          ) : (
                            <div className="py-2">
                              <div className="flex items-center gap-3">
-                               {item.channelDetails?.thumbnailUrl && <img src={item.channelDetails.thumbnailUrl} className="w-10 h-10 rounded-full border-2 border-black" />}
-                               <h3 className="font-bold text-sm text-black">{item.channelDetails?.title}</h3>
+                               {item.channelDetails?.thumbnailUrl && <img src={item.channelDetails.thumbnailUrl} className="w-12 h-12 rounded-full border-[3px] border-black bg-white" />}
+                               <h3 className="font-bold text-sm text-black uppercase leading-tight">{item.channelDetails?.title}</h3>
                              </div>
-                             <div className="mt-3 flex items-center gap-2">
-                               <span className={clsx("text-xs font-black px-2 py-0.5 border-2 border-black", item.botResult?.verdict === 'NPC_FARM' ? 'bg-red-500 text-white' : 'bg-green-400 text-black')}>
+                             <div className="mt-4 flex items-center gap-2">
+                               <span className={clsx("text-xs font-bold px-2 py-1 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]", item.botResult?.verdict === 'NPC_FARM' ? 'bg-[#ef4444] text-white' : 'bg-[#86efac] text-black')}>
                                  {item.botResult?.verdict}
                                </span>
                                <span className="text-xs text-black font-bold">({item.botResult?.botScore}%)</span>
@@ -633,7 +646,7 @@ const App: React.FC = () => {
                            </div>
                          )}
 
-                         <button onClick={() => loadSavedItem(item)} className="mt-auto w-full bg-black text-white hover:bg-zinc-800 font-bold py-2 text-xs transition-colors border-2 border-transparent">
+                         <button onClick={() => loadSavedItem(item)} className="mt-auto w-full bg-black text-white hover:bg-zinc-800 font-bold uppercase py-3 text-xs transition-colors border-2 border-transparent shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
                            LOAD DATA
                          </button>
                       </div>
@@ -647,25 +660,26 @@ const App: React.FC = () => {
       {/* Changelog Modal */}
       {showChangelog && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4 font-sans">
-           <div className="bg-white border-thick w-full max-w-2xl max-h-[80vh] overflow-y-auto hard-shadow flex flex-col rotate-1">
-              <div className="bg-pink-400 sticky top-0 p-4 border-b-thick flex justify-between items-center">
-                 <h2 className="text-2xl font-black text-black flex items-center gap-3 uppercase">
+           <div className="bg-white border-[3px] border-black w-full max-w-2xl max-h-[80vh] overflow-y-auto hard-shadow flex flex-col rotate-1">
+              <Tape className="-top-4 right-1/2 translate-x-1/2 rotate-2" />
+              <div className="bg-[#f9a8d4] sticky top-0 p-4 border-b-[3px] border-black flex justify-between items-center">
+                 <h2 className="text-2xl font-bold text-black flex items-center gap-3 uppercase tracking-tighter">
                    <History className="w-6 h-6" /> Patch Notes
                  </h2>
                  <button onClick={() => setShowChangelog(false)} className="p-2 bg-black text-white hover:bg-zinc-800 font-bold transition-colors border-2 border-transparent">
                    <X className="w-5 h-5" />
                  </button>
               </div>
-              <div className="p-8 space-y-8 bg-dots">
+              <div className="p-8 space-y-6 bg-dots">
                  {CHANGELOG_DATA.map((log, i) => (
-                    <div key={i} className="relative pl-6 border-l-4 border-black">
-                       <div className="absolute -left-[10px] top-1.5 w-4 h-4 bg-yellow-400 rounded-full border-2 border-black"></div>
+                    <div key={i} className="relative pl-6 border-l-[6px] border-black">
+                       <div className="absolute -left-[13px] top-1.5 w-5 h-5 bg-[#fde047] rounded-full border-[3px] border-black"></div>
                        <div className="flex items-baseline gap-3 mb-1">
-                         <h3 className="text-xl font-black text-black uppercase">{log.version}</h3>
-                         <span className="text-xs text-zinc-500 font-bold bg-white px-1 border border-black">{log.date}</span>
+                         <h3 className="text-xl font-bold text-black uppercase">{log.version}</h3>
+                         <span className="text-xs text-black font-bold bg-white px-1 border border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">{log.date}</span>
                        </div>
-                       <p className="text-sm text-black font-bold mb-3 italic">"{log.title}"</p>
-                       <ul className="list-disc pl-4 space-y-1 text-sm text-black font-medium">
+                       <p className="text-sm text-black font-bold mb-3 italic bg-white inline-block px-1">"{log.title}"</p>
+                       <ul className="list-disc pl-4 space-y-1 text-sm text-black font-bold marker:text-black">
                           {log.changes.map((change, j) => (<li key={j}>{change}</li>))}
                        </ul>
                     </div>
@@ -678,17 +692,18 @@ const App: React.FC = () => {
       {/* Warning Popup */}
       {showImageWarning && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 font-sans">
-          <div className="bg-yellow-300 border-thick p-8 max-w-md hard-shadow relative">
+          <div className="bg-[#fde047] border-[3px] border-black p-8 max-w-md hard-shadow relative rotate-2">
+             <Tape className="-top-5 left-10 rotate-[-4deg]" />
              <div className="flex justify-between items-start mb-4">
-                <AlertTriangle className="w-12 h-12 text-black" />
+                <AlertTriangle className="w-12 h-12 text-black stroke-[2.5]" />
              </div>
-             <h2 className="text-2xl font-black mb-2 text-black uppercase">Local File??</h2>
-             <p className="text-black mb-6 leading-relaxed font-bold border-l-4 border-black pl-4">
+             <h2 className="text-3xl font-bold mb-2 text-black uppercase tracking-tighter">Local File??</h2>
+             <p className="text-black mb-6 leading-relaxed font-bold border-l-4 border-black pl-4 text-lg">
                If you upload a file, I can't read the Title or Keywords. I'm just looking at the pixels. It's dumber, but it works.
              </p>
-             <div className="flex gap-3">
-                <button onClick={() => setShowImageWarning(false)} className="flex-1 bg-black text-white py-3 font-black hover:bg-zinc-800 transition-colors border-2 border-transparent">WHATEVER</button>
-                <button onClick={() => { setShowImageWarning(false); setThumbnailSrc(null); setAppState(AppState.IDLE); }} className="flex-1 bg-white text-black py-3 font-black border-thick hover:bg-zinc-100 transition-colors">CANCEL</button>
+             <div className="flex gap-4">
+                <button onClick={() => setShowImageWarning(false)} className="flex-1 bg-black text-white py-4 font-bold hover:bg-zinc-800 transition-colors border-2 border-transparent shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] uppercase">WHATEVER</button>
+                <button onClick={() => { setShowImageWarning(false); setThumbnailSrc(null); setAppState(AppState.IDLE); }} className="flex-1 bg-white text-black py-4 font-bold border-[3px] border-black hover:bg-zinc-100 transition-colors shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] uppercase">CANCEL</button>
              </div>
           </div>
         </div>
@@ -699,20 +714,20 @@ const App: React.FC = () => {
       <input type="file" ref={importInputRef} className="hidden" accept=".json" onChange={handleImportJSON} />
 
       {/* --- HEADER --- */}
-      <header className="bg-yellow-400 border-b-thick sticky top-0 z-50 font-sans">
+      <header className="bg-[#fde047] border-b-[3px] border-black sticky top-0 z-50 font-sans shadow-md">
         <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3 cursor-pointer group" onClick={resetAnalysis}>
             <SmashLogo />
             {/* CHANGE APP NAME HERE */}
-            <h1 className="font-black text-2xl tracking-tighter text-black italic bg-white px-2 border-2 border-black rotate-[-2deg] group-hover:rotate-[2deg] transition-transform">
+            <h1 className="font-bold text-3xl tracking-tighter text-black italic bg-white px-2 border-2 border-black rotate-[-2deg] group-hover:rotate-[2deg] transition-transform shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
               RICETOOL
             </h1>
           </div>
-          <div className="flex gap-2">
-            <button onClick={() => setShowStoreModal(true)} className="flex items-center gap-2 text-xs font-bold text-black bg-white hover:bg-zinc-100 px-3 py-2 border-2 border-black hard-shadow-sm active:translate-y-0.5 active:shadow-none transition-all">
+          <div className="flex gap-3">
+            <button onClick={() => setShowStoreModal(true)} className="flex items-center gap-2 text-xs font-bold text-black bg-white hover:bg-zinc-100 px-4 py-2 border-2 border-black hard-shadow-sm active:translate-y-0.5 active:shadow-none transition-all uppercase">
                 <ShoppingBag className="w-4 h-4" /> STORE
             </button>
-            <button onClick={() => setShowSavedList(true)} className="flex items-center gap-2 text-xs font-bold text-black bg-white hover:bg-zinc-100 px-3 py-2 border-2 border-black hard-shadow-sm active:translate-y-0.5 active:shadow-none transition-all">
+            <button onClick={() => setShowSavedList(true)} className="flex items-center gap-2 text-xs font-bold text-black bg-white hover:bg-zinc-100 px-4 py-2 border-2 border-black hard-shadow-sm active:translate-y-0.5 active:shadow-none transition-all uppercase">
                 <FolderOpen className="w-4 h-4" /> VAULT
             </button>
           </div>
@@ -722,13 +737,14 @@ const App: React.FC = () => {
       <main className="max-w-7xl mx-auto px-4 py-12 relative z-10 font-sans">
         
         {/* TAB SWITCHER */}
-        <div className="flex justify-center mb-12">
-            <div className="bg-white p-1.5 border-thick hard-shadow rotate-1 inline-flex gap-2">
+        <div className="flex justify-center mb-16">
+            <div className="bg-white p-2 border-[3px] border-black hard-shadow rotate-1 inline-flex gap-3 relative">
+                <Tape className="-top-4 right-1/2 translate-x-1/2 rotate-[-1deg] w-32" />
                 <button 
                     onClick={() => { setActiveTab('RATER'); resetAnalysis(); }}
                     className={clsx(
-                        "px-6 py-2 text-sm font-black uppercase transition-all border-2",
-                        activeTab === 'RATER' ? "bg-pink-400 text-black border-black" : "bg-transparent text-zinc-400 border-transparent hover:text-black"
+                        "px-8 py-3 text-lg font-bold uppercase transition-all border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5",
+                        activeTab === 'RATER' ? "bg-[#f9a8d4] text-black border-black" : "bg-zinc-100 text-zinc-400 border-transparent hover:text-black hover:border-black"
                     )}
                 >
                     Thumb Rater
@@ -736,8 +752,8 @@ const App: React.FC = () => {
                 <button 
                     onClick={() => { setActiveTab('BOT_HUNTER'); resetAnalysis(); }}
                     className={clsx(
-                        "px-6 py-2 text-sm font-black uppercase transition-all border-2",
-                        activeTab === 'BOT_HUNTER' ? "bg-cyan-400 text-black border-black" : "bg-transparent text-zinc-400 border-transparent hover:text-black"
+                        "px-8 py-3 text-lg font-bold uppercase transition-all border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5",
+                        activeTab === 'BOT_HUNTER' ? "bg-[#67e8f9] text-black border-black" : "bg-zinc-100 text-zinc-400 border-transparent hover:text-black hover:border-black"
                     )}
                 >
                     Bot Hunter
@@ -745,375 +761,414 @@ const App: React.FC = () => {
             </div>
         </div>
 
+        {/* HERO TEXT */}
+        <div className="text-center mb-12 relative">
+            <h1 className="text-6xl md:text-8xl font-bold text-black uppercase tracking-tighter leading-none relative z-10 drop-shadow-xl">
+                IS YOUR THUMB <br/>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#ef4444] to-[#ec4899] drop-shadow-none">TRASH?</span>
+            </h1>
+            <p className="mt-4 text-xl font-bold text-black bg-[#fde047] inline-block px-4 py-1 border-[3px] border-black rotate-[-2deg] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                {activeTab === 'RATER' ? "Find out if you are cooked." : "Find out if they are NPCs."}
+            </p>
+            
+            {/* Decor elements */}
+            <div className="absolute top-1/2 left-1/4 -translate-y-1/2 -translate-x-12 hidden md:block">
+                <div className="text-9xl font-bold text-black/5 rotate-[-12deg] select-none">?</div>
+            </div>
+            <div className="absolute top-1/2 right-1/4 -translate-y-1/2 translate-x-12 hidden md:block">
+                <div className="text-9xl font-bold text-black/5 rotate-[12deg] select-none">!</div>
+            </div>
+        </div>
+
         {/* INPUT SECTION */}
-        <div className="max-w-3xl mx-auto mb-16">
-          <div className="relative group">
-            <div className="relative flex bg-cyan-300 p-2 border-thick hard-shadow">
-               <div className="flex items-center justify-center w-12 text-black border-r-2 border-black mr-2">
-                  {activeTab === 'RATER' ? <Youtube className="w-6 h-6" /> : <Bot className="w-6 h-6" />}
+        <div className="max-w-3xl mx-auto mb-16 relative">
+          <div className="absolute -top-6 -left-6 bg-black text-white px-3 py-1 font-bold text-xs rotate-[-5deg] border-2 border-white shadow-md z-10">
+              {activeTab === 'RATER' ? "PASTE IT" : "EXPOSE THEM"}
+          </div>
+          <div className="relative group hover:scale-[1.01] transition-transform duration-200">
+            <div className="relative flex bg-[#67e8f9] p-3 border-[3px] border-black hard-shadow">
+               <div className="flex items-center justify-center w-14 text-black border-r-[3px] border-black mr-3 bg-white/30">
+                  {activeTab === 'RATER' ? <Youtube className="w-8 h-8" /> : <Bot className="w-8 h-8" />}
                </div>
                <input 
                  type="text" 
                  placeholder={activeTab === 'RATER' ? "PASTE YOUTUBE LINK HERE..." : "PASTE CHANNEL LINK HERE..."}
-                 className="w-full bg-transparent outline-none text-black placeholder-black/50 px-2 font-bold uppercase"
+                 className="w-full bg-transparent outline-none text-black placeholder-black/50 px-2 font-bold text-xl uppercase caret-black"
                  value={url}
                  onChange={handleUrlChange}
                  onKeyDown={(e) => e.key === 'Enter' && handleInputSubmit()}
                />
-               <div className="flex gap-2">
-                 {activeTab === 'RATER' && (
-                     <button 
-                        onClick={() => fileInputRef.current?.click()}
-                        className="p-3 text-black bg-white border-2 border-black hover:bg-zinc-100 transition-all"
-                        title="Upload File"
-                     >
-                        <CloudUpload className="w-5 h-5" />
-                     </button>
-                 )}
-                 <button 
-                    onClick={handleInputSubmit}
-                    disabled={!url || appState === AppState.ANALYZING}
-                    className="bg-black text-white px-6 font-black uppercase hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 border-2 border-transparent"
-                 >
-                    {appState === AppState.ANALYZING ? <Loader2 className="w-4 h-4 animate-spin" /> : "JUDGE ME"}
-                 </button>
-               </div>
+               <button 
+                 onClick={handleInputSubmit} 
+                 className="bg-[#ec4899] hover:bg-pink-400 text-black px-8 font-bold text-xl border-[3px] border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-y-1 transition-all uppercase"
+               >
+                 JUDGE ME
+               </button>
             </div>
+            {/* Corner decorations */}
+            <div className="absolute -top-1 -right-1 w-2 h-2 bg-black"></div>
+            <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-black"></div>
           </div>
-          {activeTab === 'RATER' && <p className="text-center text-xs font-bold text-black mt-4 bg-white inline-block px-2 border-2 border-black rotate-1 mx-auto block w-fit">LINKS OR FILES IDK</p>}
+          
+          {activeTab === 'RATER' && (
+              <div className="text-center mt-4">
+                  <button onClick={() => fileInputRef.current?.click()} className="text-xs font-bold text-black hover:underline uppercase tracking-wide bg-white px-2 py-1 border border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-y-[2px] transition-all">
+                    or upload a raw file (Dumber)
+                  </button>
+              </div>
+          )}
+
+          {errorMsg && (
+            <div className="mt-6 bg-[#ef4444] text-white p-4 font-bold border-[3px] border-black hard-shadow-sm flex items-center gap-3 animate-in fade-in slide-in-from-top-4 rotate-1">
+              <AlertCircle className="w-6 h-6 stroke-[3px]" />
+              {errorMsg}
+            </div>
+          )}
         </div>
 
-        {/* ERROR STATE */}
-        {errorMsg && (
-          <div className="max-w-2xl mx-auto mb-8 p-4 bg-red-100 border-thick flex items-center gap-4 animate-slide-up text-red-600">
-            <AlertCircle className="w-8 h-8 shrink-0 text-black" />
-            <p className="text-sm font-bold text-black">{errorMsg}</p>
-          </div>
-        )}
-
-        {/* --- BOT HUNTER RESULTS --- */}
-        {activeTab === 'BOT_HUNTER' && (botResult || appState === AppState.ANALYZING) && (
-             <div className="max-w-4xl mx-auto animate-slide-up">
-                {appState === AppState.ANALYZING ? (
-                    <div className="bg-white border-thick p-12 text-center hard-shadow">
-                         <Loader2 className="w-12 h-12 mx-auto mb-6 text-black animate-spin" />
-                         <h2 className="text-2xl font-black text-black mb-2 uppercase">Interrogating User...</h2>
-                         <p className="text-black font-bold">Checking if they have a soul.</p>
-                    </div>
-                ) : botResult && (
-                    <div className="bg-white border-thick hard-shadow">
-                        <div className="p-8">
-                            <div className="flex justify-between items-start mb-8 border-b-thick pb-8 bg-dots">
-                                <div className="flex items-center gap-6">
-                                    {analyzingChannel?.thumbnailUrl && (
-                                        <img src={analyzingChannel.thumbnailUrl} className="w-20 h-20 rounded-full border-thick bg-white" />
-                                    )}
-                                    <div>
-                                        <h2 className="text-3xl font-black text-black uppercase bg-yellow-300 px-2 inline-block border-2 border-black rotate-1">{analyzingChannel?.title}</h2>
-                                        <div className="flex gap-3 mt-3 text-xs font-bold font-mono text-black">
-                                            <span className="bg-white border-2 border-black px-2 py-1">{analyzingChannel?.subscriberCount} Subs</span>
-                                            <span className="bg-white border-2 border-black px-2 py-1">{analyzingChannel?.videoCount} Vids</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <button onClick={() => setShowSaveModal(true)} className="bg-black hover:bg-zinc-800 text-white px-4 py-3 font-bold transition-colors flex items-center gap-2 border-2 border-transparent">
-                                    <Save className="w-4 h-4" /> SAVE REPORT
-                                </button>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                                <div className="md:col-span-1 bg-zinc-100 border-thick p-6 flex flex-col items-center justify-center text-center">
-                                    <h3 className="text-sm font-black uppercase text-black mb-3 border-b-2 border-black w-full pb-1">Bot Meter</h3>
-                                    
-                                    <div className="relative w-32 h-32 flex items-center justify-center mb-3">
-                                        <svg className="w-full h-full transform -rotate-90">
-                                            <circle cx="64" cy="64" r="60" stroke="#000" strokeWidth="8" fill="white" />
-                                            <circle cx="64" cy="64" r="60" stroke={botResult.verdict === 'NPC_FARM' ? '#ef4444' : (botResult.verdict === 'CYBORG' ? '#fbbf24' : '#10b981')} strokeWidth="8" fill="transparent" strokeDasharray={377} strokeDashoffset={377 - (377 * botResult.botScore) / 100} strokeLinecap="round" />
-                                        </svg>
-                                        <span className="absolute text-3xl font-black text-black">{botResult.botScore}%</span>
-                                    </div>
-
-                                    <div className={clsx(
-                                        "text-lg font-black px-4 py-1 border-2 border-black rotate-[-2deg]",
-                                        botResult.verdict === 'HUMAN' ? "bg-green-300 text-black" : (botResult.verdict === 'CYBORG' ? "bg-yellow-300 text-black" : "bg-red-500 text-white")
-                                    )}>
-                                        {botResult.verdict}
-                                    </div>
-                                </div>
-                                
-                                <div className="md:col-span-2">
-                                    <h3 className="text-lg font-black text-black mb-4 flex items-center gap-2 uppercase"><FileText className="w-5 h-5" /> Evidence</h3>
-                                    <ul className="space-y-3">
-                                        {(botResult.evidence || []).map((ev, i) => (
-                                            <li key={i} className="flex items-start gap-3 text-sm font-bold text-black bg-white p-3 border-2 border-black hard-shadow-sm">
-                                                <AlertTriangle className="w-5 h-5 text-black shrink-0" />
-                                                {ev}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            </div>
-                            
-                            <div className="mt-8 bg-zinc-100 border-l-[6px] border-black pl-4 py-4 italic">
-                                <p className="text-black text-lg font-bold">"{botResult.summary}"</p>
-                            </div>
-
-                        </div>
-                    </div>
-                )}
-             </div>
-        )}
-
-        {/* --- THUMB RATER RESULTS DASHBOARD --- */}
-        {activeTab === 'RATER' && (thumbnailSrc || result) && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-slide-up">
-            
-            {/* Left Column (4/12): Image & Metadata */}
-            <div className="lg:col-span-4 space-y-6">
-              
-              {/* Thumbnail Card */}
-              <div className="bg-white border-thick p-2 hard-shadow rotate-1 relative group">
-                <div className={clsx("relative aspect-video bg-black overflow-hidden border-2 border-black", isSusDetected && "border-4 border-red-500")}>
-                  <img 
-                    src={thumbnailSrc || ''} 
-                    alt="Thumbnail" 
-                    className={clsx("w-full h-full object-contain transition-all duration-500", isSusDetected && !showSusContent && "blur-xl opacity-50")}
-                  />
-                  
-                  {isSusDetected && !showSusContent && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-black/60 backdrop-blur-sm cursor-pointer" onClick={() => setShowSusContent(true)}>
-                          <div className="bg-red-500 text-white border-2 border-white px-4 py-2 font-black mb-2 flex items-center gap-2 uppercase rotate-[-5deg] text-xl">
-                             <Siren className="w-6 h-6" /> SUS CONTENT
-                          </div>
-                          <button className="text-sm text-white font-bold underline">CLICK TO RISK IT</button>
-                      </div>
-                  )}
-
-                  {appState === AppState.ANALYZING && (
-                    <div className="absolute inset-0 bg-white/90 flex items-center justify-center flex-col gap-3 z-20">
-                      <Loader2 className="w-12 h-12 text-black animate-spin" />
-                      <span className="text-xl font-black text-black uppercase">COOKING...</span>
-                    </div>
-                  )}
-                </div>
+        {/* --- MAIN CONTENT AREA --- */}
+        
+        {/* Loading State */}
+        {appState === AppState.LOADING_IMAGE && (
+           <div className="flex flex-col items-center justify-center py-20 animate-slide-up">
+              <div className="w-20 h-20 bg-white border-[3px] border-black flex items-center justify-center animate-spin hard-shadow mb-8">
+                 <Loader2 className="w-10 h-10 text-black" />
               </div>
+              <p className="text-2xl font-bold bg-white px-4 py-2 border-[3px] border-black rotate-2">STEALING DATA...</p>
+           </div>
+        )}
 
-              {/* Metadata Card */}
-              {(videoTitle || isMetadataLoading) && (
-                <div className="bg-white border-thick p-6 relative hard-shadow-sm rotate-[-1deg]">
-                  <div className="flex items-center gap-2 mb-4 text-black text-xs font-black uppercase tracking-wider border-b-2 border-black pb-2">
-                     <BoxSelect className="w-4 h-4" /> Video Metadata
-                  </div>
-                  
-                  {isMetadataLoading ? (
-                    <div className="space-y-3">
-                        <div className="h-4 bg-zinc-200 w-3/4 animate-pulse border-2 border-zinc-300"></div>
-                        <div className="h-3 bg-zinc-200 w-1/2 animate-pulse border-2 border-zinc-300"></div>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div>
-                          <p className="text-black font-bold leading-snug">{videoTitle}</p>
+        {/* Analyzing State */}
+        {appState === AppState.ANALYZING && (
+           <div className="flex flex-col items-center justify-center py-20 animate-slide-up">
+              <div className="w-24 h-24 bg-[#fde047] border-[3px] border-black flex items-center justify-center animate-bounce hard-shadow mb-8 rounded-full">
+                 <Zap className="w-12 h-12 text-black fill-white" />
+              </div>
+              <p className="text-4xl font-bold bg-white px-6 py-3 border-[3px] border-black -rotate-2 uppercase tracking-tighter">COOKING...</p>
+              <p className="mt-4 text-sm font-bold opacity-60">Do not turn off your console.</p>
+           </div>
+        )}
+
+        {/* RATER RESULTS */}
+        {appState === AppState.READY_TO_ANALYZE && activeTab === 'RATER' && thumbnailSrc && (
+          <div className="max-w-4xl mx-auto animate-slide-up">
+             <div className="bg-white border-[3px] border-black p-2 hard-shadow rotate-1 mb-8 relative group">
+                <Tape className="-top-3 left-1/2 -translate-x-1/2" />
+                <div className="relative aspect-video bg-black border-2 border-black overflow-hidden">
+                   <img src={thumbnailSrc} className="w-full h-full object-contain" />
+                   {/* Stolen Data Receipt */}
+                   <div className="absolute top-4 left-4 max-w-xs bg-white border-[3px] border-black p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rotate-[-2deg] opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                      <div className="text-center border-b-2 border-black border-dashed pb-2 mb-2">
+                        <h3 className="text-xl font-bold uppercase">STOLEN DATA</h3>
+                        <p className="text-[10px]">{new Date().toLocaleDateString()}</p>
                       </div>
-                      <div className="grid grid-cols-2 gap-4 pt-4 border-t-2 border-black">
-                          <div>
-                             <span className="text-[10px] text-zinc-500 font-black uppercase block mb-1">Keywords</span>
-                             <div className="flex flex-wrap gap-1">
-                                {videoKeywords.slice(0, 3).map((k, i) => (
-                                    <span key={i} className="text-[10px] text-black bg-zinc-100 border border-black px-1.5 py-0.5">{k}</span>
-                                ))}
-                                {videoKeywords.length > 3 && <span className="text-[10px] text-zinc-500 pl-1 font-bold">+{videoKeywords.length - 3}</span>}
-                             </div>
-                          </div>
-                          <div>
-                             <span className="text-[10px] text-zinc-500 font-black uppercase block mb-1">Description</span>
-                             <span className={clsx("text-xs flex items-center gap-1 font-bold", videoDesc ? "text-green-600" : "text-red-500")}>
-                                {videoDesc ? <CheckCircle2 className="w-4 h-4" /> : <X className="w-4 h-4" />} {videoDesc ? 'FOUND' : 'MISSING'}
-                             </span>
-                          </div>
+                      <div className="space-y-2 text-xs font-bold uppercase">
+                         <div className="flex justify-between"><span>TITLE:</span> <span>{videoTitle ? "FOUND" : "MISSING"}</span></div>
+                         <div className="flex justify-between"><span>DESC:</span> <span>{videoDesc ? "FOUND" : "MISSING"}</span></div>
+                         <div className="flex justify-between"><span>TAGS:</span> <span>{videoKeywords.length} FOUND</span></div>
                       </div>
-                    </div>
-                  )}
+                      <div className="mt-3 text-center text-[10px] font-bold border-t-2 border-black border-dashed pt-2">
+                         THANK YOU FOR SHOPPING
+                      </div>
+                   </div>
                 </div>
-              )}
-              
-              {appState === AppState.READY_TO_ANALYZE && (
-                 <button 
-                 onClick={handleAnalyze}
-                 className="w-full bg-pink-500 hover:bg-pink-400 text-white font-black text-xl py-4 border-thick hard-shadow transition-transform active:translate-y-1 active:shadow-none flex items-center justify-center gap-2"
+             </div>
+             <div className="flex justify-center">
+               <button 
+                 onClick={handleAnalyze} 
+                 className="bg-[#86efac] hover:bg-green-400 text-black text-2xl px-12 py-4 font-bold border-[3px] border-black hard-shadow transition-transform active:translate-y-1 active:shadow-none uppercase tracking-tight"
                >
-                 <Sparkles className="w-6 h-6" /> START ROAST
+                 START JUDGEMENT
                </button>
-              )}
-            </div>
-
-            {/* Right Column (8/12): Dashboard Results */}
-            <div className="lg:col-span-8 flex flex-col h-full gap-8">
-              {!result ? (
-                 appState === AppState.ANALYZING ? (
-                    <div className="flex-1 bg-white border-thick flex flex-col items-center justify-center p-12 min-h-[400px] hard-shadow">
-                        <div className="relative">
-                            <div className="w-20 h-20 border-4 border-black rounded-full animate-ping absolute bg-yellow-200"></div>
-                            <div className="w-20 h-20 bg-yellow-400 rounded-full border-thick flex items-center justify-center relative z-10">
-                                <Zap className="w-10 h-10 text-black fill-white" />
-                            </div>
-                        </div>
-                        <h3 className="mt-8 text-2xl font-black text-black uppercase">JUDGING YOU...</h3>
-                        <p className="text-black font-bold mt-2">Trying not to laugh.</p>
-                    </div>
-                 ) : (
-                    <div className="flex-1 bg-zinc-5 border-thick border-dashed flex flex-col items-center justify-center p-12 min-h-[400px]">
-                         <div className="w-20 h-20 bg-white border-thick rounded-full flex items-center justify-center mb-6 rotate-3"><BoxSelect className="w-8 h-8 text-black" /></div>
-                         <h3 className="text-black font-black text-xl uppercase">WAITING FOR VICTIMS</h3>
-                         <p className="text-zinc-500 font-bold mt-2">Paste a link to begin the roast.</p>
-                    </div>
-                 )
-              ) : (
-                <>
-                   {/* Row 1: Score & Chart */}
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        {/* Overall Score Card */}
-                        <div className={clsx("bg-white border-thick p-6 relative overflow-hidden flex flex-col justify-between hard-shadow rotate-[-1deg]", 
-                            result.scores.overall >= 8 ? "bg-green-100" : (result.scores.overall >= 5 ? "bg-yellow-100" : "bg-red-100")
-                        )}>
-                            <div className="flex justify-between items-start z-10">
-                                <div>
-                                    <h3 className="text-sm font-black text-black uppercase tracking-wider border-b-2 border-black">FINAL SCORE</h3>
-                                    <p className="text-black text-xs mt-1 font-bold">Based on pure vibes & math</p>
-                                </div>
-                                <button onClick={() => setShowSaveModal(true)} className="text-black hover:scale-110 transition-transform">
-                                    <Save className="w-6 h-6" />
-                                </button>
-                            </div>
-                            
-                            <div className="flex items-baseline gap-2 mt-4 z-10 justify-center py-6">
-                                <span className="text-8xl font-black tracking-tighter text-black drop-shadow-[4px_4px_0_rgba(255,255,255,1)]">
-                                    {result.scores.overall}
-                                </span>
-                                <span className="text-black font-black text-2xl rotate-[-5deg]">/ 10</span>
-                            </div>
-                        </div>
-                        
-                        {/* Radar Chart Card */}
-                        <div className="bg-white border-thick p-4 flex items-center justify-center relative hard-shadow rotate-1">
-                             <div className="absolute top-4 left-4 text-xs font-black text-black uppercase bg-yellow-300 px-2 border-2 border-black">PENTAGON OF PAIN</div>
-                             <div className="w-full h-64 mt-4">
-                                <AnalysisChart scores={result.scores} />
-                             </div>
-                        </div>
-                   </div>
-
-                   {/* Row 2: Detailed Scores */}
-                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                      <ScoreCard label="Clarity" score={result.scores.clarity} />
-                      <ScoreCard label="Curiosity" score={result.scores.curiosity} />
-                      <ScoreCard label="Text" score={result.scores.text_readability} />
-                      <ScoreCard label="Emotion" score={result.scores.emotion} />
-                   </div>
-
-                   {/* Row 3: Verdict & Suggestions */}
-                   <div className="grid grid-cols-1 gap-6">
-                        <div className="bg-white border-thick p-6 hard-shadow">
-                             <h3 className="text-lg font-black text-black uppercase mb-3 flex items-center gap-2 bg-pink-300 w-fit px-2 border-2 border-black rotate-[-1deg]">
-                                <Terminal className="w-5 h-5" /> THE VERDICT
-                             </h3>
-                             <p className="text-black text-xl leading-relaxed font-bold italic">
-                                "{result.summary}"
-                             </p>
-                        </div>
-                        
-                        <div className="bg-white border-thick p-6 hard-shadow">
-                           <h3 className="text-lg font-black text-black uppercase mb-4 flex items-center gap-2 bg-cyan-300 w-fit px-2 border-2 border-black rotate-1">
-                              <Target className="w-5 h-5" /> HOW TO FIX IT
-                           </h3>
-                           <div className="grid gap-3">
-                             {(result.suggestions || []).map((s, i) => (
-                               <div key={i} className="flex items-start gap-4 p-4 border-2 border-black bg-zinc-50 hover:bg-yellow-100 transition-colors">
-                                 <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center text-lg font-bold shrink-0">{i+1}</div>
-                                 <span className="text-base text-black font-bold pt-0.5">{s}</span>
-                               </div>
-                             ))}
-                           </div>
-                        </div>
-                   </div>
-                </>
-              )}
-            </div>
+             </div>
           </div>
         )}
 
-        {/* CHAT ROOM */}
-        {((activeTab === 'RATER' && result && !isSusDetected) || (activeTab === 'BOT_HUNTER' && botResult)) && (
-            <div className="mt-16 max-w-4xl mx-auto animate-slide-up">
-                <div className="bg-white border-thick hard-shadow overflow-hidden">
-                    <div className="bg-purple-400 border-b-thick p-4 flex items-center gap-3">
-                        <div className="w-3 h-3 rounded-full bg-green-400 border-2 border-black animate-pulse"></div>
-                        <h2 className="text-xl font-black text-black uppercase tracking-wide">
-                            {activeTab === 'BOT_HUNTER' ? "THE INTERROGATION" : "THE ROAST ROOM"}
-                        </h2>
-                    </div>
-                    
-                    <div className="h-96 overflow-y-auto p-6 flex flex-col gap-4 bg-dots">
-                        {chatHistory.map((msg, idx) => (
-                            <div key={idx} className={clsx("flex flex-col max-w-[85%]", msg.role === 'user' ? "self-end items-end" : "self-start items-start")}>
-                                <div className={clsx(
-                                    "px-6 py-4 text-sm font-bold shadow-[2px_2px_0_0_#000] border-2 border-black", 
-                                    msg.role === 'user' ? "bg-blue-400 text-white rounded-2xl rounded-br-none" : "bg-white text-black rounded-2xl rounded-bl-none"
-                                )}>
-                                    {msg.text}
-                                </div>
-                                <span className="text-[10px] font-black text-black mt-1 px-1 uppercase">{msg.role === 'user' ? 'YOU' : 'RICE DROID'}</span>
+        {/* RATER SUCCESS */}
+        {appState === AppState.SUCCESS && activeTab === 'RATER' && result && (
+          <div className="animate-slide-up space-y-12">
+             
+             {/* Main Score & Chart */}
+             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                
+                {/* Left: Image & Receipt */}
+                <div className="lg:col-span-5 space-y-6">
+                   <div className="bg-white border-[3px] border-black p-2 hard-shadow rotate-[-1deg] relative">
+                      <Tape className="-top-3 -right-2 rotate-[4deg]" />
+                      <div className="aspect-video bg-black border-2 border-black overflow-hidden relative group">
+                         <img src={thumbnailSrc!} className={clsx("w-full h-full object-contain", isSusDetected && !showSusContent && "blur-xl scale-110 transition-all")} />
+                         {isSusDetected && !showSusContent && (
+                            <div onClick={() => setShowSusContent(true)} className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer bg-black/20 hover:bg-black/10 transition-colors z-10">
+                               <Siren className="w-16 h-16 text-red-500 animate-pulse drop-shadow-lg" />
+                               <p className="text-white font-black text-2xl uppercase mt-2 drop-shadow-md">SUS DETECTED</p>
+                               <p className="text-white text-xs font-bold bg-red-500 px-2 py-1 mt-2">CLICK TO VIEW ANYWAY</p>
                             </div>
-                        ))}
-                        {isChatLoading && (
-                            <div className="self-start bg-white px-6 py-4 rounded-2xl rounded-bl-none border-2 border-black flex gap-2 shadow-[2px_2px_0_0_#000]">
-                                <div className="w-2 h-2 bg-black rounded-full animate-bounce"></div>
-                                <div className="w-2 h-2 bg-black rounded-full animate-bounce delay-100"></div>
-                                <div className="w-2 h-2 bg-black rounded-full animate-bounce delay-200"></div>
-                            </div>
-                        )}
-                        <div ref={chatEndRef} />
-                    </div>
-                    
-                    <div className="p-4 bg-purple-100 border-t-thick">
-                        <div className="flex gap-2 bg-white p-2 border-thick focus-within:ring-2 focus-within:ring-black transition-all">
-                            <input 
-                                type="text" 
-                                className="flex-1 bg-transparent px-2 font-bold text-black outline-none placeholder-zinc-500 uppercase" 
-                                placeholder="SAY SOMETHING..." 
-                                value={chatInput} 
-                                onChange={(e) => setChatInput(e.target.value)} 
-                                onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()} 
-                                disabled={isChatLoading}
-                            />
-                            <button 
-                                onClick={handleSendMessage} 
-                                disabled={isChatLoading || !chatInput.trim()} 
-                                className="bg-black hover:bg-zinc-800 text-white p-3 font-bold transition-colors disabled:opacity-50"
-                            >
-                                <Send className="w-5 h-5" />
-                            </button>
-                        </div>
-                    </div>
+                         )}
+                      </div>
+                   </div>
+
+                   {/* Metadata Receipt (Always visible now) */}
+                   <div className="bg-[#fff1f2] border-[3px] border-black p-4 relative shadow-sm mx-4">
+                       <div className="w-4 h-4 rounded-full bg-black absolute -top-2 left-1/2 -translate-x-1/2"></div>
+                       <h3 className="font-bold text-center border-b-[3px] border-black pb-2 mb-3 text-lg uppercase">Evidence</h3>
+                       <div className="space-y-2 text-xs font-bold font-sans">
+                          <p><span className="bg-black text-white px-1">TITLE</span> {videoTitle || "N/A"}</p>
+                          <p className="line-clamp-3 opacity-70"><span className="bg-black text-white px-1">DESC</span> {videoDesc || "N/A"}</p>
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {videoKeywords.slice(0, 5).map(k => (
+                               <span key={k} className="px-1 border border-black bg-white text-[10px] uppercase">{k}</span>
+                            ))}
+                          </div>
+                       </div>
+                   </div>
                 </div>
-            </div>
+
+                {/* Right: Scores */}
+                <div className="lg:col-span-7">
+                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                      <ScoreCard label="CLARITY" score={result.scores.clarity} rotation="rotate-[-2deg]" />
+                      <ScoreCard label="CURIOSITY" score={result.scores.curiosity} rotation="rotate-[1deg]" />
+                      <ScoreCard label="TEXT" score={result.scores.text_readability} rotation="rotate-[-1deg]" />
+                      <ScoreCard label="EMOTION" score={result.scores.emotion} rotation="rotate-[2deg]" />
+                   </div>
+                   
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      {/* Chart */}
+                      <div className="aspect-square relative">
+                         <div className="absolute -top-6 left-0 bg-black text-white px-3 py-1 font-bold rotate-[-3deg] z-10 text-sm border-2 border-white shadow-md">PENTAGON OF PAIN</div>
+                         <AnalysisChart scores={result.scores} />
+                      </div>
+
+                      {/* Overall Score */}
+                      <div className="flex flex-col justify-center">
+                         <div className="bg-white border-[3px] border-black p-6 hard-shadow flex flex-col items-center justify-center h-full relative rotate-1">
+                            <Tape className="-top-3 right-10 rotate-[2deg]" />
+                            <h3 className="text-xl font-black uppercase mb-2">Final Verdict</h3>
+                            <div className="relative">
+                               <span className={clsx("text-9xl font-black tracking-tighter drop-shadow-md", 
+                                  result.scores.overall >= 8 ? "text-[#86efac]" : 
+                                  result.scores.overall >= 5 ? "text-[#fde047]" : "text-[#fca5a5]"
+                               )}>
+                                 {result.scores.overall}
+                               </span>
+                               <span className="text-4xl font-black text-black absolute -right-6 top-4">/10</span>
+                            </div>
+                            {isCelebrationMode && <div className="text-sm font-bold bg-[#fde047] px-3 py-1 border-2 border-black rotate-[-3deg] animate-pulse">LEGENDARY STATUS</div>}
+                            
+                            <div className="mt-6 flex w-full gap-2">
+                               <button onClick={() => setShowSaveModal(true)} className="flex-1 bg-black text-white py-2 font-bold text-xs hover:bg-zinc-800 transition-colors border-2 border-transparent uppercase">SAVE</button>
+                               <button onClick={resetAnalysis} className="flex-1 bg-white text-black py-2 font-bold text-xs border-2 border-black hover:bg-zinc-100 transition-colors uppercase">RESET</button>
+                            </div>
+                         </div>
+                      </div>
+                   </div>
+                </div>
+             </div>
+
+             {/* Summary & Suggestions */}
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                 <div className="bg-[#fde047] border-[3px] border-black p-6 hard-shadow relative">
+                    <div className="absolute -top-4 -left-2 bg-black text-white px-4 py-1 font-bold rotate-[-2deg] border-2 border-white shadow-md text-lg">THE ROAST</div>
+                    <p className="text-xl font-bold leading-relaxed mt-4">"{result.summary}"</p>
+                 </div>
+                 
+                 <div className="bg-white border-[3px] border-black p-6 hard-shadow relative">
+                    <div className="absolute -top-4 -left-2 bg-[#67e8f9] text-black px-4 py-1 font-bold rotate-[1deg] border-[3px] border-black shadow-sm text-lg uppercase">Fix It</div>
+                    <ul className="mt-4 space-y-3">
+                       {result.suggestions.map((s, i) => (
+                          <li key={i} className="flex items-start gap-3 text-sm font-bold">
+                             <div className="min-w-[24px] h-6 bg-black text-white flex items-center justify-center text-xs mt-0.5 border-2 border-black shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]">{i+1}</div>
+                             <span>{s}</span>
+                          </li>
+                       ))}
+                    </ul>
+                 </div>
+             </div>
+             
+             {/* Chat Room */}
+             <div className="border-[3px] border-black bg-white hard-shadow relative flex flex-col h-[500px]">
+                 <div className="bg-[#f9a8d4] p-4 border-b-[3px] border-black flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                       <MessageSquare className="w-6 h-6 text-black" />
+                       <h3 className="font-bold text-xl uppercase tracking-tight">The Roast Room</h3>
+                    </div>
+                    <div className="flex gap-1">
+                       <div className="w-3 h-3 rounded-full bg-black border border-white"></div>
+                       <div className="w-3 h-3 rounded-full bg-white border border-black"></div>
+                       <div className="w-3 h-3 rounded-full bg-black border border-white"></div>
+                    </div>
+                 </div>
+                 
+                 <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-dots">
+                    {chatHistory.length === 0 && (
+                       <div className="text-center opacity-40 mt-10">
+                          <p className="font-bold uppercase text-lg">Say something...</p>
+                       </div>
+                    )}
+                    {chatHistory.map((msg, i) => (
+                       <div key={i} className={clsx("flex flex-col max-w-[80%]", msg.role === 'user' ? "ml-auto items-end" : "mr-auto items-start")}>
+                          <div className={clsx(
+                             "p-3 border-[3px] border-black font-bold text-sm shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]",
+                             msg.role === 'user' ? "bg-[#67e8f9] rounded-tl-xl rounded-bl-xl rounded-tr-xl" : "bg-white rounded-tr-xl rounded-br-xl rounded-tl-xl"
+                          )}>
+                             {msg.text}
+                          </div>
+                          <span className="text-[10px] font-bold mt-1 opacity-50 uppercase">{msg.role === 'user' ? 'YOU' : 'RICEDROID'}</span>
+                       </div>
+                    ))}
+                    {isChatLoading && (
+                       <div className="mr-auto flex items-center gap-1 bg-white p-3 border-[3px] border-black rounded-xl">
+                          <div className="w-2 h-2 bg-black rounded-full animate-bounce"></div>
+                          <div className="w-2 h-2 bg-black rounded-full animate-bounce delay-75"></div>
+                          <div className="w-2 h-2 bg-black rounded-full animate-bounce delay-150"></div>
+                       </div>
+                    )}
+                    <div ref={chatEndRef} />
+                 </div>
+                 
+                 <div className="p-4 bg-zinc-100 border-t-[3px] border-black flex gap-2">
+                    <input 
+                      type="text" 
+                      className="flex-1 bg-white border-[3px] border-black px-4 font-bold outline-none placeholder-zinc-400 focus:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-shadow"
+                      placeholder="Comment with the AI..."
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                    />
+                    <button onClick={handleSendMessage} className="bg-black text-white p-3 border-[3px] border-black hover:bg-zinc-800 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)]">
+                       <Send className="w-5 h-5" />
+                    </button>
+                 </div>
+             </div>
+          </div>
+        )}
+
+        {/* BOT HUNTER SUCCESS */}
+        {appState === AppState.SUCCESS && activeTab === 'BOT_HUNTER' && botResult && analyzingChannel && (
+          <div className="max-w-4xl mx-auto animate-slide-up space-y-8">
+             
+             {/* Verdict Header */}
+             <div className="bg-white border-[3px] border-black p-8 hard-shadow relative overflow-hidden">
+                <Tape className="-top-3 right-20 rotate-1" />
+                <div className="flex flex-col md:flex-row justify-between gap-6 relative z-10">
+                   <div>
+                      <h2 className="text-3xl font-black uppercase tracking-tighter mb-2">{analyzingChannel.title}</h2>
+                      <div className="flex gap-2 text-sm font-bold">
+                         <span className="bg-zinc-100 px-2 border border-black">{analyzingChannel.subscriberCount || "???"} SUBS</span>
+                         <span className="bg-zinc-100 px-2 border border-black">{analyzingChannel.videoCount || "???"} VIDS</span>
+                      </div>
+                   </div>
+                   <div className="flex flex-col items-end">
+                      <div className={clsx(
+                         "text-4xl font-black uppercase px-6 py-2 border-[3px] border-black rotate-[-2deg] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] mb-2",
+                         botResult.verdict === 'HUMAN' ? "bg-[#86efac] text-black" : 
+                         botResult.verdict === 'CYBORG' ? "bg-[#fde047] text-black" : "bg-[#ef4444] text-white"
+                      )}>
+                         {botResult.verdict}
+                      </div>
+                      <span className="font-bold text-xs uppercase tracking-widest bg-black text-white px-2">Probability: {botResult.botScore}%</span>
+                   </div>
+                </div>
+                
+                {/* Background Decor */}
+                <Bot className="absolute -bottom-4 -right-4 w-48 h-48 text-black/5 rotate-12" />
+             </div>
+
+             {/* Evidence & Save */}
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="bg-white border-[3px] border-black p-6 hard-shadow flex flex-col">
+                   <h3 className="text-xl font-bold uppercase border-b-[3px] border-black pb-2 mb-4 flex items-center gap-2">
+                     <FileText className="w-5 h-5" /> Evidence
+                   </h3>
+                   <ul className="space-y-3 flex-1">
+                      {botResult.evidence.map((e, i) => (
+                         <li key={i} className="flex items-start gap-2 text-sm font-bold">
+                            <AlertCircle className="w-4 h-4 mt-0.5 text-[#ef4444] shrink-0" />
+                            <span>{e}</span>
+                         </li>
+                      ))}
+                   </ul>
+                </div>
+                
+                <div className="space-y-4">
+                   <div className="bg-[#fde047] border-[3px] border-black p-6 hard-shadow">
+                      <h3 className="font-bold uppercase text-xs mb-2 opacity-60">Detective Notes</h3>
+                      <p className="font-bold text-lg leading-tight">"{botResult.summary}"</p>
+                   </div>
+                   
+                   <div className="flex gap-2">
+                      <button onClick={() => setShowSaveModal(true)} className="flex-1 bg-black text-white py-4 font-bold uppercase hover:bg-zinc-800 transition-colors border-2 border-transparent shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]">
+                         FILE REPORT (SAVE)
+                      </button>
+                      <button onClick={resetAnalysis} className="flex-1 bg-white text-black py-4 font-bold uppercase hover:bg-zinc-100 transition-colors border-[3px] border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                         NEXT SUSPECT
+                      </button>
+                   </div>
+                </div>
+             </div>
+
+             {/* Chat Interrogation */}
+             <div className="border-[3px] border-black bg-white hard-shadow relative flex flex-col h-[400px]">
+                 <div className="bg-[#67e8f9] p-4 border-b-[3px] border-black flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                       <Siren className="w-6 h-6 text-black" />
+                       <h3 className="font-bold text-xl uppercase tracking-tight">The Interrogation</h3>
+                    </div>
+                 </div>
+                 
+                 <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-dots">
+                    {chatHistory.length === 0 && (
+                       <div className="text-center opacity-40 mt-10">
+                          <p className="font-bold uppercase text-lg">Question the suspect...</p>
+                       </div>
+                    )}
+                    {chatHistory.map((msg, i) => (
+                       <div key={i} className={clsx("flex flex-col max-w-[80%]", msg.role === 'user' ? "ml-auto items-end" : "mr-auto items-start")}>
+                          <div className={clsx(
+                             "p-3 border-[3px] border-black font-bold text-sm shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]",
+                             msg.role === 'user' ? "bg-[#fde047] rounded-tl-xl rounded-bl-xl rounded-tr-xl" : "bg-white rounded-tr-xl rounded-br-xl rounded-tl-xl"
+                          )}>
+                             {msg.text}
+                          </div>
+                          <span className="text-[10px] font-bold mt-1 opacity-50 uppercase">{msg.role === 'user' ? 'DETECTIVE' : 'SYSTEM'}</span>
+                       </div>
+                    ))}
+                    {isChatLoading && (
+                       <div className="mr-auto flex items-center gap-1 bg-white p-3 border-[3px] border-black rounded-xl">
+                          <div className="w-2 h-2 bg-black rounded-full animate-bounce"></div>
+                          <div className="w-2 h-2 bg-black rounded-full animate-bounce delay-75"></div>
+                          <div className="w-2 h-2 bg-black rounded-full animate-bounce delay-150"></div>
+                       </div>
+                    )}
+                    <div ref={chatEndRef} />
+                 </div>
+                 
+                 <div className="p-4 bg-zinc-100 border-t-[3px] border-black flex gap-2">
+                    <input 
+                      type="text" 
+                      className="flex-1 bg-white border-[3px] border-black px-4 font-bold outline-none placeholder-zinc-400 focus:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-shadow"
+                      placeholder="Comment with the AI..."
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                    />
+                    <button onClick={handleSendMessage} className="bg-black text-white p-3 border-[3px] border-black hover:bg-zinc-800 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)]">
+                       <Send className="w-5 h-5" />
+                    </button>
+                 </div>
+             </div>
+
+          </div>
         )}
 
       </main>
 
-      <footer className="border-t-thick bg-yellow-300 py-12 mt-20 font-sans">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-2">
-             <div className="bg-black p-2"><Zap className="w-4 h-4 text-white" /></div>
-             <span className="font-black text-xl text-black italic">RICETOOL</span>
-          </div>
-          <div className="flex items-center gap-6">
-             <span className="text-xs text-black font-bold">v2.12 (THE REVERT)</span>
-             <button onClick={() => setShowChangelog(true)} className="text-xs font-black text-black hover:underline uppercase bg-white border-2 border-black px-3 py-1 shadow-[2px_2px_0_0_#000] hover:translate-y-[1px] hover:shadow-none transition-all">
-                 READ LOGS
-             </button>
-          </div>
-        </div>
+      {/* FOOTER */}
+      <footer className="absolute bottom-4 w-full text-center font-bold text-xs pointer-events-none">
+         <button onClick={() => setShowChangelog(true)} className="pointer-events-auto bg-white border-2 border-black px-3 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-y-[2px] transition-all uppercase">
+           v2.13 Changelog
+         </button>
+         <p className="mt-2 opacity-50">BUILT WITH HATE & LOVE</p>
       </footer>
     </div>
   );

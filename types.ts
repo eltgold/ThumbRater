@@ -1,3 +1,4 @@
+
 export interface ThumbnailScores {
   clarity: number;
   curiosity: number;
@@ -73,3 +74,5 @@ export interface SavedItem {
   // Video Chat Data
   videoResult?: VideoAnalysisResult;
 }
+
+export type RiceTubeCategory = 'HOME' | 'TRENDING' | 'GAMING' | 'TECH' | 'MUSIC' | 'SUS';

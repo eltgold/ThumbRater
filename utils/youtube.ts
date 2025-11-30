@@ -1,3 +1,4 @@
+
 export const extractVideoId = (url: string): string | null => {
   try {
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
@@ -90,13 +91,10 @@ const getApiKey = (): string | null => {
 };
 
 export const fetchVideoMetadata = async (videoId: string): Promise<VideoMetadata> => {
-  console.log("Fetching metadata for:", videoId);
-
   // STRATEGY 1: Official YouTube Data API v3
   try {
     const apiKey = getApiKey();
     if (apiKey) {
-      console.log("Attempting YouTube Data API v3...");
       const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${apiKey}`;
       const response = await fetch(apiUrl);
       
@@ -119,7 +117,6 @@ export const fetchVideoMetadata = async (videoId: string): Promise<VideoMetadata
   }
 
   // STRATEGY 2: Invidious API
-  console.log("Attempting Invidious API Fallback...");
   for (const instance of INVIDIOUS_INSTANCES) {
     try {
       const response = await fetch(`${instance}/api/v1/videos/${videoId}`);
@@ -140,7 +137,6 @@ export const fetchVideoMetadata = async (videoId: string): Promise<VideoMetadata
 
   // STRATEGY 3: oEmbed
   try {
-     console.log("Attempting oEmbed Fallback...");
      const oembedUrl = `https://www.youtube.com/oembed?url=http://www.youtube.com/watch?v=${videoId}&format=json`;
      const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(oembedUrl)}`;
      const response = await fetch(proxyUrl);
@@ -203,11 +199,17 @@ export const fetchChannelDetails = async (channelId: string): Promise<ChannelDet
     return null;
 }
 
-export const searchYouTubeVideos = async (query: string): Promise<SearchResult[]> => {
+export const searchYouTubeVideos = async (query: string, categoryId?: string): Promise<SearchResult[]> => {
   try {
     const apiKey = getApiKey();
     if (apiKey) {
-      const apiUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video,channel&q=${encodeURIComponent(query)}&key=${apiKey}&maxResults=16`;
+      let apiUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video,channel&q=${encodeURIComponent(query)}&key=${apiKey}&maxResults=20`;
+      
+      if (categoryId) {
+          // If category is present, strict video search
+          apiUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=${categoryId}&q=${encodeURIComponent(query)}&key=${apiKey}&maxResults=20`;
+      }
+
       const response = await fetch(apiUrl);
       if (response.ok) {
         const data = await response.json();
@@ -229,13 +231,14 @@ export const searchYouTubeVideos = async (query: string): Promise<SearchResult[]
     console.warn("YouTube Search API error:", e);
   }
 
+  // Invidious Fallback (Category ID not strictly supported in basic search, using queries)
   for (const instance of INVIDIOUS_INSTANCES) {
     try {
       const response = await fetch(`${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=all`);
       if (response.ok) {
         const data = await response.json();
         if (Array.isArray(data)) {
-            return data.slice(0, 16).map((item: any) => ({
+            return data.slice(0, 20).map((item: any) => ({
               id: item.videoId || item.authorId,
               type: item.type === 'channel' ? 'channel' : 'video',
               title: item.title || item.author,
@@ -253,10 +256,36 @@ export const searchYouTubeVideos = async (query: string): Promise<SearchResult[]
   return [];
 };
 
-export const fetchExploreFeed = async (): Promise<SearchResult[]> => {
-  // Safe quoted string for query
-  const query = '(vlog|gaming|tech|challenge|commentary|analysis) -vevo -lyrics -"official music video"';
-  return searchYouTubeVideos(query);
+export const fetchExploreFeed = async (category: 'HOME' | 'TRENDING' | 'GAMING' | 'TECH' | 'MUSIC' | 'SUS' = 'HOME'): Promise<SearchResult[]> => {
+  let query = '';
+  let categoryId = '';
+
+  switch (category) {
+      case 'GAMING':
+          query = 'gameplay review walkthrough -shorts';
+          categoryId = '20'; // Gaming ID
+          break;
+      case 'TECH':
+          query = 'tech review unboxing gadget -shorts';
+          categoryId = '28'; // Science & Tech
+          break;
+      case 'MUSIC':
+          query = 'official music video';
+          categoryId = '10'; // Music
+          break;
+      case 'TRENDING':
+          query = 'trending viral video now';
+          break;
+      case 'SUS':
+          query = 'hot tiktok compilation viral'; // Risky query
+          break;
+      case 'HOME':
+      default:
+          query = 'vlog analysis commentary video essay -vevo -shorts';
+          break;
+  }
+
+  return searchYouTubeVideos(query, categoryId);
 };
 
 export const fetchChannelVideos = async (channelId: string, pageToken?: string): Promise<SearchResult[]> => {

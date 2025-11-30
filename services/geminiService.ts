@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { AnalysisResult, ChatMessage, BotAnalysisResult, VideoAnalysisResult } from '../types';
 import { ChannelDetails, SearchResult, VideoMetadata } from '../utils/youtube';
@@ -167,7 +166,9 @@ export const analyzeVideoContext = async (
     2. Identify 3 main topics.
     3. Determine the "Tone" (e.g., Cringy, Educational, Clickbait, Wholesome).
     
-    Output JSON:
+    IMPORTANT: You have Google Search grounding enabled. If the metadata is vague, USE YOUR TOOLS to find out what this video is actually about.
+    
+    Output JSON (Do not use markdown code blocks):
     {
       "videoId": "${videoId}",
       "summary": "string",
@@ -181,20 +182,19 @@ export const analyzeVideoContext = async (
         model: modelId,
         contents: prompt,
         config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    videoId: { type: Type.STRING },
-                    summary: { type: Type.STRING },
-                    topics: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    tone: { type: Type.STRING }
-                }
-            }
+           tools: [{ googleSearch: {} }],
         }
     }))) as GenerateContentResponse;
     if (!response.text) throw new Error("No response");
-    return JSON.parse(cleanJsonString(response.text));
+    // Since strict JSON mode is off for search tools, we must parse carefully
+    try {
+        return JSON.parse(cleanJsonString(response.text));
+    } catch (e) {
+        // Fallback if the AI returns text with JSON inside
+        const match = response.text.match(/\{[\s\S]*\}/);
+        if (match) return JSON.parse(match[0]);
+        throw new Error("Failed to parse JSON from search result");
+    }
   } catch (e) {
       throw e;
   }
@@ -222,41 +222,65 @@ export const sendChatMessage = async (
   const ai = getAiClient();
   const contents = [];
 
-  let systemPromptText = "You are a Gen Z social media manager. Be helpful but snarky.";
+  let systemPromptText = "You are a Gen Z social media manager. Be helpful but snarky. ALWAYS be specific.";
   let initialUserParts = [];
 
+  // --- RATER CONTEXT ---
   if (context.type === 'RATER' && context.raterResult && context.imageBase64) {
+    const metaTitle = context.videoMetadata?.title ? `Title: "${context.videoMetadata.title}"` : "Title: Unknown";
+    const metaDesc = context.videoMetadata?.description ? `Desc: "${context.videoMetadata.description.substring(0, 300)}..."` : "";
+
     const normalContext = `
       You are a sarcastic, funny YouTube expert named "RiceDroid".
-      You have analyzed this thumbnail.
-      Scores: ${JSON.stringify(context.raterResult.scores)}.
-      Verdict: ${context.raterResult.summary}.
+      
+      CONTEXT OF ANALYSIS:
+      ${metaTitle}
+      ${metaDesc}
+      Scores: ${JSON.stringify(context.raterResult.scores)}
+      Verdict: "${context.raterResult.summary}"
+      Key Fixes: ${JSON.stringify(context.raterResult.suggestions)}
       Sus Status: ${context.raterResult.isSus ? "YES" : "NO"}.
       
-      User Input: "${newMessage}"
+      USER QUESTION: "${newMessage}"
       
-      Reply in a short, punchy, slightly "dumb internet" style. Use slang. Be brutally honest but precise about technical details if asked.
+      CRITICAL INSTRUCTION: 
+      - Do NOT give generic advice like "make it pop". 
+      - You MUST reference specific visual elements from the image (e.g. "That red font is unreadable", "The face on the left is blurry", "The high contrast works").
+      - Connect the metadata title to the image visuals. Does the image actually fit the title?
+      - Be brutally honest but precise. Use slang/internet humor.
     `;
     initialUserParts = [
       { inlineData: { mimeType: 'image/jpeg', data: context.imageBase64 } },
       { text: normalContext }
     ];
+  
+  // --- BOT HUNTER CONTEXT ---
   } else if (context.type === 'BOT_HUNTER' && context.botResult && context.channelDetails) {
     systemPromptText = "You are a suspicious, cynical investigator named 'Deckard'. You hunt bots.";
     const botContext = `
       You are analyzing a YouTube Channel for bot activity.
+      
+      TARGET INFO:
       Channel: "${context.channelDetails.title}"
+      Subs: ${context.channelDetails.subscriberCount} | Videos: ${context.channelDetails.videoCount}
+      
+      ANALYSIS FINDINGS:
       Verdict: ${context.botResult.verdict} (${context.botResult.botScore}% Bot Probability)
-      Evidence Found: ${JSON.stringify(context.botResult.evidence)}
-      Summary: ${context.botResult.summary}
+      Specific Evidence Found: ${JSON.stringify(context.botResult.evidence)}
+      Summary: "${context.botResult.summary}"
       
-      User Input: "${newMessage}"
+      USER QUESTION: "${newMessage}"
       
-      Reply as a cynical detective. If it's a bot, mock its lack of soul. If it's human, be skeptical. Keep it short and noir-ish.
+      CRITICAL INSTRUCTION:
+      - You MUST quote the specific evidence found. Don't just say "it looks automated". Say "The titles are clearly templated" or "Uploading 10 videos a day is impossible for a human".
+      - Be cynical. If it's a bot, mock its soulless nature. 
+      - Reference the subscriber count vs video count ratio if relevant.
     `;
     initialUserParts = [
       { text: botContext }
     ];
+
+  // --- VIDEO CHAT CONTEXT ---
   } else if (context.type === 'VIDEO_CHAT' && context.videoMetadata) {
       systemPromptText = "You are 'CouchBuddy', a friend watching this video with the user.";
       const vidContext = `
@@ -289,11 +313,10 @@ export const sendChatMessage = async (
     });
   } else {
     // Reconstruct history
-    // For Rater, we need to re-inject context image if possible, or just text context
     let contextMsg = "";
     
     if (context.type === 'RATER' && context.raterResult) {
-       contextMsg = `I uploaded this thumbnail. You gave it a ${context.raterResult.scores.overall}/10. Summary: ${context.raterResult.summary}`;
+       contextMsg = `Recall: We are analyzing the thumbnail for "${context.videoMetadata?.title || 'Unknown Video'}". You scored it ${context.raterResult.scores.overall}/10.`;
        contents.push({
         role: 'user',
         parts: [
@@ -302,13 +325,13 @@ export const sendChatMessage = async (
         ]
       });
     } else if (context.type === 'BOT_HUNTER' && context.botResult) {
-       contextMsg = `We are analyzing channel "${context.channelDetails?.title}". You determined it is ${context.botResult.verdict} (${context.botResult.botScore}%).`;
+       contextMsg = `Recall: Analyzing channel "${context.channelDetails?.title}". Verdict: ${context.botResult.verdict}.`;
        contents.push({
         role: 'user',
         parts: [{ text: contextMsg }]
       });
     } else if (context.type === 'VIDEO_CHAT' && context.videoMetadata) {
-        contextMsg = `We are discussing the video "${context.videoMetadata.title}".`;
+        contextMsg = `Recall: Discussing video "${context.videoMetadata.title}".`;
         contents.push({
             role: 'user',
             parts: [{ text: contextMsg }]
@@ -329,11 +352,13 @@ export const sendChatMessage = async (
   }
 
   try {
+    // Enable tools for all chat modes so it can lookup info if needed
     const response = (await withTimeout(ai.models.generateContent({
       model: modelId,
       contents: contents,
       config: {
-        systemInstruction: systemPromptText
+        systemInstruction: systemPromptText,
+        tools: [{ googleSearch: {} }]
       }
     }))) as GenerateContentResponse;
 

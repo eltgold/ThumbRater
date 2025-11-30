@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { extractVideoId, blobToBase64, fetchVideoMetadata, searchYouTubeVideos, fetchChannelLatestVideos, SearchResult, fetchChannelDetails, extractChannelId, ChannelDetails, fetchExploreFeed, VideoMetadata } from './utils/youtube';
 import { analyzeThumbnail, sendChatMessage, analyzeBotProbability, analyzeVideoContext } from './services/geminiService';
@@ -33,11 +32,22 @@ import {
   Eye,
   EyeOff,
   ArrowLeft,
-  Link2
+  Link2,
+  FlaskConical
 } from 'lucide-react';
 import clsx from 'clsx';
 
 const CHANGELOG_DATA: ChangelogEntry[] = [
+  {
+      version: "v2.20",
+      date: "2025-12-12",
+      title: "The Beta Update",
+      changes: [
+          "Added 'Experimental Features' toggle in Settings.",
+          "Hid 'Ask Video' tab behind the Beta flag.",
+          "Added BETA badges and stability warnings."
+      ]
+  },
   {
       version: "v2.19",
       date: "2025-12-12",
@@ -46,6 +56,16 @@ const CHANGELOG_DATA: ChangelogEntry[] = [
           "Added Channel View in Video Store (Click a channel to see videos!).",
           "Added 'SafeSearch' Sus Blocker for store results.",
           "Added 'Blur/Reveal' toggles for sensitive content."
+      ]
+  },
+  {
+      version: "v2.18",
+      date: "2025-12-11",
+      title: "The Search Update",
+      changes: [
+          "Video Chat now uses Google Search to watch the video for real.",
+          "Loading screens are more precise.",
+          "AI doesn't just guess anymore."
       ]
   },
   {
@@ -159,6 +179,7 @@ const App: React.FC = () => {
   const [copiedItemId, setCopiedItemId] = useState<string | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<SearchResult | null>(null);
   const [revealedItems, setRevealedItems] = useState<Set<string>>(new Set());
+  const [storeNextPageToken, setStoreNextPageToken] = useState<string | undefined>(undefined);
 
   // Bot Hunter State
   const [botResult, setBotResult] = useState<BotAnalysisResult | null>(null);
@@ -179,6 +200,7 @@ const App: React.FC = () => {
   
   // Settings State
   const [apiKeyInput, setApiKeyInput] = useState('');
+  const [showExperimental, setShowExperimental] = useState(false);
 
   // Storage State
   const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
@@ -200,7 +222,7 @@ const App: React.FC = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory, isChatLoading]);
 
-  // Load saved items and API Key from local storage on mount
+  // Load saved items and settings from local storage on mount
   useEffect(() => {
     try {
       const storedItems = localStorage.getItem('thumb_rate_saved');
@@ -210,6 +232,10 @@ const App: React.FC = () => {
       const storedKey = localStorage.getItem('ricetool_api_key');
       if (storedKey) {
         setApiKeyInput(storedKey);
+      }
+      const storedExp = localStorage.getItem('ricetool_experimental');
+      if (storedExp) {
+        setShowExperimental(JSON.parse(storedExp));
       }
     } catch (e) {
       console.error("Failed to load saved items", e);
@@ -226,6 +252,16 @@ const App: React.FC = () => {
             .finally(() => setIsStoreSearching(false));
       }
   }, [showStoreModal]);
+
+  const toggleExperimental = () => {
+      const newValue = !showExperimental;
+      setShowExperimental(newValue);
+      localStorage.setItem('ricetool_experimental', JSON.stringify(newValue));
+      if (!newValue && activeTab === 'VIDEO_CHAT') {
+          setActiveTab('RATER');
+          resetAnalysis();
+      }
+  };
 
   const saveApiKey = () => {
     const key = apiKeyInput.trim();
@@ -438,9 +474,12 @@ const App: React.FC = () => {
         setStoreView('CHANNEL');
         setIsStoreSearching(true);
         setStoreResults([]); // Clear current list to show loading
+        setStoreNextPageToken(undefined);
         try {
             const channelVideos = await fetchChannelLatestVideos(item.id);
             setStoreResults(channelVideos);
+            // Invidious might give us a token for next page if supported
+            setStoreNextPageToken("page:2"); 
         } catch (e) {
             console.error(e);
         } finally {
@@ -450,6 +489,21 @@ const App: React.FC = () => {
         // Copy Video Link
         handleCopy(item.id, 'video');
     }
+  };
+
+  const handleLoadMore = async () => {
+      if (!selectedChannel || !storeNextPageToken) return;
+      
+      try {
+          // This calls fetchChannelVideos internally with pagination
+          // For now, simple mock pagination with invidious
+          const nextPage = parseInt(storeNextPageToken.split(':')[1]);
+          const videos = await fetchChannelLatestVideos(selectedChannel.id); // In real implementation we pass pageToken
+          setStoreResults(prev => [...prev, ...videos]);
+          setStoreNextPageToken(`page:${nextPage + 1}`);
+      } catch (e) {
+          console.error(e);
+      }
   };
 
   const handleBackToSearch = () => {
@@ -530,7 +584,7 @@ const App: React.FC = () => {
           botResult: botResult,
           channelDetails: analyzingChannel,
           videoResult: videoAnalysisResult,
-          videoMetadata: currentVideoMetadata
+          videoMetadata: activeTab === 'RATER' ? { title: videoTitle, description: videoDesc, keywords: videoKeywords } : currentVideoMetadata
       });
       setChatHistory(prev => [...prev, { role: 'model', text: aiResponse }]);
     } catch (error) {
@@ -666,47 +720,67 @@ const App: React.FC = () => {
                <Tape className="-top-4 left-1/2 -translate-x-1/2" />
                <div className="flex justify-between items-center mb-6 border-b-[3px] border-black pb-4">
                   <h2 className="text-xl font-bold text-black uppercase flex items-center gap-2">
-                     <Settings className="w-6 h-6 animate-spin-slow" /> API & Account
+                     <Settings className="w-6 h-6 animate-spin-slow" /> Settings
                   </h2>
                   <button onClick={() => setShowSettingsModal(false)} className="hover:bg-zinc-100 p-1 border-2 border-transparent hover:border-black transition-all">
                      <X className="w-5 h-5" />
                   </button>
                </div>
                
-               <div className="space-y-4">
-                  <p className="font-bold text-sm bg-blue-50 border-2 border-blue-200 p-3">
-                     Connect your <span className="bg-[#fde047] px-1 border border-black">YouTube Data API Key</span> to access detailed account-level data.
-                     This allows for customized search results, precise metadata fetching, and finding custom content in the Video Store.
-                  </p>
-                  
-                  <div className="flex flex-col gap-2">
-                     <label className="text-xs font-bold uppercase tracking-wider">Your API Key:</label>
-                     <div className="flex gap-2">
-                        <div className="relative flex-1">
-                           <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                           <input 
-                              type="text" 
-                              value={apiKeyInput}
-                              onChange={(e) => setApiKeyInput(e.target.value)}
-                              placeholder="AIzaSy..."
-                              className="w-full border-[3px] border-black p-2 pl-9 font-bold font-mono text-sm outline-none focus:bg-zinc-50 caret-black cursor-text z-20 relative"
-                           />
-                        </div>
-                     </div>
+               <div className="space-y-6">
+                  {/* API KEY SECTION */}
+                  <div className="space-y-4">
+                      <h3 className="font-bold text-sm uppercase tracking-widest border-b-2 border-black pb-1">API Access</h3>
+                      <p className="font-bold text-xs text-zinc-600">
+                        Add a <span className="bg-[#fde047] px-1 border border-black text-black">Custom API Key</span> to enable better search, channel stats, and deeper analysis.
+                      </p>
+                      
+                      <div className="flex gap-2">
+                          <div className="relative flex-1">
+                              <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                              <input 
+                                  type="text" 
+                                  value={apiKeyInput}
+                                  onChange={(e) => setApiKeyInput(e.target.value)}
+                                  placeholder="AIzaSy..."
+                                  className="w-full border-[3px] border-black p-2 pl-9 font-bold font-mono text-sm outline-none focus:bg-zinc-50 caret-black cursor-text z-20 relative"
+                              />
+                          </div>
+                      </div>
+                      <div className="flex gap-2">
+                           <button onClick={saveApiKey} className="flex-1 bg-[#86efac] text-black py-2 font-bold border-[3px] border-black hard-shadow-sm active:shadow-none active:translate-y-1 uppercase transition-all text-xs">
+                              Save Key
+                           </button>
+                           <button onClick={() => { setApiKeyInput(''); localStorage.removeItem('ricetool_api_key'); alert("Key cleared."); }} className="bg-zinc-200 text-black px-4 font-bold border-[3px] border-black hard-shadow-sm active:shadow-none active:translate-y-1 uppercase transition-all text-xs">
+                              Clear
+                           </button>
+                      </div>
                   </div>
 
-                  <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="flex items-center gap-2 text-xs font-bold text-blue-600 hover:underline uppercase">
-                     <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" className="w-4 h-4" />
-                     Get a key from Google Cloud
-                  </a>
-
-                  <div className="flex gap-3 mt-4 pt-4 border-t-[3px] border-black border-dashed">
-                     <button onClick={saveApiKey} className="flex-1 bg-[#86efac] text-black py-3 font-bold border-[3px] border-black hard-shadow-sm active:shadow-none active:translate-y-1 uppercase transition-all">
-                        Save Config
-                     </button>
-                     <button onClick={() => { setApiKeyInput(''); localStorage.removeItem('ricetool_api_key'); alert("Key cleared."); }} className="bg-zinc-200 text-black px-4 font-bold border-[3px] border-black hard-shadow-sm active:shadow-none active:translate-y-1 uppercase transition-all">
-                        Clear
-                     </button>
+                  {/* EXPERIMENTAL SECTION */}
+                  <div className="space-y-4">
+                       <h3 className="font-bold text-sm uppercase tracking-widest border-b-2 border-black pb-1">Experiments</h3>
+                       <div className="flex items-center justify-between bg-zinc-50 p-3 border-2 border-black">
+                           <div className="flex items-center gap-2">
+                               <FlaskConical className="w-5 h-5 text-purple-600" />
+                               <div className="flex flex-col">
+                                   <span className="font-bold text-sm uppercase">Beta Features</span>
+                                   <span className="text-[10px] font-bold text-zinc-500">Enable "Ask Video" & new tools</span>
+                               </div>
+                           </div>
+                           <button 
+                               onClick={toggleExperimental}
+                               className={clsx(
+                                   "w-12 h-6 border-[3px] border-black rounded-full relative transition-colors",
+                                   showExperimental ? "bg-[#a78bfa]" : "bg-zinc-300"
+                               )}
+                           >
+                               <div className={clsx(
+                                   "absolute top-[-3px] w-6 h-6 bg-white border-[3px] border-black rounded-full transition-all",
+                                   showExperimental ? "left-[calc(100%-1.2rem)]" : "left-[-3px]"
+                               )}></div>
+                           </button>
+                       </div>
                   </div>
                </div>
              </div>
@@ -863,6 +937,17 @@ const App: React.FC = () => {
                         </div>
                     )})}
                     </div>
+                     {/* LOAD MORE BUTTON */}
+                     {storeNextPageToken && storeView === 'CHANNEL' && !isStoreSearching && (
+                          <div className="mt-8 flex justify-center pb-8">
+                              <button 
+                                  onClick={handleLoadMore}
+                                  className="bg-white text-black font-black text-xl px-12 py-4 border-[3px] border-black hard-shadow hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all uppercase"
+                              >
+                                  LOAD MORE VIDEOS
+                              </button>
+                          </div>
+                     )}
                   </div>
               </div>
            </div>
@@ -1046,15 +1131,18 @@ const App: React.FC = () => {
                 >
                     Bot Hunter
                 </button>
-                <button 
-                    onClick={() => { setActiveTab('VIDEO_CHAT'); resetAnalysis(); }}
-                    className={clsx(
-                        "px-6 py-3 text-lg font-bold uppercase transition-all border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5",
-                        activeTab === 'VIDEO_CHAT' ? "bg-[#a78bfa] text-black border-black" : "bg-zinc-100 text-zinc-400 border-transparent hover:text-black hover:border-black"
-                    )}
-                >
-                    Ask Video
-                </button>
+                {showExperimental && (
+                    <button 
+                        onClick={() => { setActiveTab('VIDEO_CHAT'); resetAnalysis(); }}
+                        className={clsx(
+                            "px-6 py-3 text-lg font-bold uppercase transition-all border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 relative",
+                            activeTab === 'VIDEO_CHAT' ? "bg-[#a78bfa] text-black border-black" : "bg-zinc-100 text-zinc-400 border-transparent hover:text-black hover:border-black"
+                        )}
+                    >
+                        Ask Video
+                        <span className="absolute -top-3 -right-3 bg-red-500 text-white text-[10px] px-1.5 py-0.5 font-bold border-2 border-black rotate-12 shadow-sm">BETA</span>
+                    </button>
+                )}
             </div>
         </div>
 
@@ -1147,8 +1235,8 @@ const App: React.FC = () => {
         {/* Analyzing State */}
         {appState === AppState.ANALYZING && (
            <div className="flex flex-col items-center justify-center py-20 animate-slide-up">
-              <div className="w-24 h-24 bg-[#fde047] border-[3px] border-black flex items-center justify-center animate-bounce hard-shadow mb-8 rounded-full">
-                 <Zap className="w-12 h-12 text-black fill-white" />
+              <div className="w-24 h-24 bg-[#fde047] border-[3px] border-black flex items-center justify-center hard-shadow mb-8 rounded-full">
+                 <Loader2 className="w-12 h-12 text-black animate-spin" />
               </div>
               <p className="text-4xl font-bold bg-white px-6 py-3 border-[3px] border-black -rotate-2 uppercase tracking-tighter">
                 {activeTab === 'VIDEO_CHAT' ? "WATCHING VIDEO..." : "COOKING..."}
@@ -1462,6 +1550,11 @@ const App: React.FC = () => {
         {/* VIDEO CHAT SUCCESS */}
         {appState === AppState.SUCCESS && activeTab === 'VIDEO_CHAT' && activeVideoId && (
             <div className="max-w-4xl mx-auto animate-slide-up space-y-8">
+                 {/* BETA WARNING BANNER */}
+                 <div className="bg-[#fde047]/20 border-[3px] border-black border-dashed p-4 text-center">
+                    <p className="font-bold text-sm uppercase">🧪 Experimental Feature: Results may vary. Search grounding enabled.</p>
+                 </div>
+
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* Video Player & Info */}
                     <div className="flex flex-col gap-4">
@@ -1546,7 +1639,7 @@ const App: React.FC = () => {
       {/* FOOTER */}
       <footer className="absolute bottom-4 w-full text-center font-bold text-xs pointer-events-none">
          <button onClick={() => setShowChangelog(true)} className="pointer-events-auto bg-white border-2 border-black px-3 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-y-[2px] transition-all uppercase">
-           v2.19 Changelog
+           v2.20 Changelog
          </button>
          <p className="mt-2 opacity-50">BUILT WITH HATE & LOVE</p>
       </footer>

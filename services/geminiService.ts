@@ -1,7 +1,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { AnalysisResult, ChatMessage } from '../types';
+import { AnalysisResult, ChatMessage, BotAnalysisResult } from '../types';
+import { ChannelDetails, SearchResult } from '../utils/youtube';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+// Helper to clean Markdown JSON code blocks
+const cleanJsonString = (str: string): string => {
+  return str.replace(/```json\n?|```/g, '').trim();
+};
 
 export const analyzeThumbnail = async (
   imageBase64: string, 
@@ -63,6 +69,7 @@ export const analyzeThumbnail = async (
        - Example: Cur=10, Emo=10, Clar=10, Text=8 -> (4 + 3 + 2 + 0.8) = 9.8 -> 10.
 
     OUTPUT INSTRUCTIONS:
+      - Return ONLY raw JSON.
       - isSus: Boolean.
       - susReason: If isSus is true, provide a short warning.
       - Summary: A 1-sentence verdict. Cite a SPECIFIC visual element.
@@ -113,59 +120,97 @@ export const analyzeThumbnail = async (
       }
     });
 
-    if (response.text) {
-      return JSON.parse(response.text) as AnalysisResult;
-    } else {
-      throw new Error("Empty response from Gemini");
-    }
+    if (!response.text) throw new Error("No response from Gemini");
+    return JSON.parse(cleanJsonString(response.text)) as AnalysisResult;
+
   } catch (error) {
     console.error("Gemini Analysis Error:", error);
     throw error;
   }
 };
 
+export interface ChatContext {
+  type: 'RATER' | 'BOT_HUNTER';
+  // Rater Props
+  imageBase64?: string | null;
+  raterResult?: AnalysisResult | null;
+  // Bot Props
+  botResult?: BotAnalysisResult | null;
+  channelDetails?: ChannelDetails | null;
+}
+
 export const sendChatMessage = async (
-  imageBase64: string,
   history: ChatMessage[],
   newMessage: string,
-  analysisContext: AnalysisResult
+  context: ChatContext
 ): Promise<string> => {
   const modelId = "gemini-2.5-flash";
-
   const contents = [];
 
-  const normalContext = `
-    You are a sarcastic, funny YouTube expert named "RiceDroid".
-    You have analyzed this thumbnail.
-    Scores: ${JSON.stringify(analysisContext.scores)}.
-    Verdict: ${analysisContext.summary}.
-    Sus Status: ${analysisContext.isSus ? "YES" : "NO"}.
-    
-    User Input: "${newMessage}"
-    
-    Reply in a short, punchy, slightly "dumb internet" style. Use slang. Be brutally honest but precise about technical details if asked.
-  `;
+  let systemPromptText = "You are a Gen Z social media manager who is tired. Be helpful but snarky.";
+  let initialUserParts = [];
+
+  if (context.type === 'RATER' && context.raterResult && context.imageBase64) {
+    const normalContext = `
+      You are a sarcastic, funny YouTube expert named "RiceDroid".
+      You have analyzed this thumbnail.
+      Scores: ${JSON.stringify(context.raterResult.scores)}.
+      Verdict: ${context.raterResult.summary}.
+      Sus Status: ${context.raterResult.isSus ? "YES" : "NO"}.
+      
+      User Input: "${newMessage}"
+      
+      Reply in a short, punchy, slightly "dumb internet" style. Use slang. Be brutally honest but precise about technical details if asked.
+    `;
+    initialUserParts = [
+      { inlineData: { mimeType: 'image/jpeg', data: context.imageBase64 } },
+      { text: normalContext }
+    ];
+  } else if (context.type === 'BOT_HUNTER' && context.botResult && context.channelDetails) {
+    systemPromptText = "You are a suspicious, cynical investigator named 'Deckard'. You hunt bots.";
+    const botContext = `
+      You are analyzing a YouTube Channel for bot activity.
+      Channel: "${context.channelDetails.title}"
+      Verdict: ${context.botResult.verdict} (${context.botResult.botScore}% Bot Probability)
+      Evidence Found: ${JSON.stringify(context.botResult.evidence)}
+      Summary: ${context.botResult.summary}
+      
+      User Input: "${newMessage}"
+      
+      Reply as a cynical detective. If it's a bot, mock its lack of soul. If it's human, be skeptical. Keep it short and noir-ish.
+    `;
+    initialUserParts = [
+      { text: botContext }
+    ];
+  }
 
   if (history.length === 0) {
     contents.push({
       role: 'user',
-      parts: [
-        { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } },
-        { text: normalContext }
-      ]
+      parts: initialUserParts
     });
   } else {
-    // Reconstruct history with context
-    const contextMsg = `I uploaded this thumbnail. You gave it a ${analysisContext.scores.overall}/10. Summary: ${analysisContext.summary}`;
+    // Reconstruct history
+    // For Rater, we need to re-inject context image if possible, or just text context
+    let contextMsg = "";
     
-    contents.push({
-      role: 'user',
-      parts: [
-        { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } },
-        { text: contextMsg }
-      ]
-    });
-    
+    if (context.type === 'RATER' && context.raterResult) {
+       contextMsg = `I uploaded this thumbnail. You gave it a ${context.raterResult.scores.overall}/10. Summary: ${context.raterResult.summary}`;
+       contents.push({
+        role: 'user',
+        parts: [
+          { inlineData: { mimeType: 'image/jpeg', data: context.imageBase64 || '' } },
+          { text: contextMsg }
+        ]
+      });
+    } else if (context.type === 'BOT_HUNTER' && context.botResult) {
+       contextMsg = `We are analyzing channel "${context.channelDetails?.title}". You determined it is ${context.botResult.verdict} (${context.botResult.botScore}%).`;
+       contents.push({
+        role: 'user',
+        parts: [{ text: contextMsg }]
+      });
+    }
+
     history.forEach(msg => {
       contents.push({
         role: msg.role,
@@ -184,7 +229,7 @@ export const sendChatMessage = async (
       model: modelId,
       contents: contents,
       config: {
-        systemInstruction: "You are a Gen Z social media manager who is tired. Be helpful but snarky."
+        systemInstruction: systemPromptText
       }
     });
 
@@ -192,5 +237,79 @@ export const sendChatMessage = async (
   } catch (error) {
     console.error("Chat Error:", error);
     return "Brain freeze. Try again.";
+  }
+};
+
+export const analyzeBotProbability = async (
+  channelDetails: ChannelDetails,
+  videos: SearchResult[]
+): Promise<BotAnalysisResult> => {
+  const modelId = "gemini-2.5-flash";
+
+  const prompt = `
+    Analyze this YouTube channel data to detect if it is a HUMAN, a CYBORG (Human using Heavy AI tools), or an NPC FARM (Fully Automated Bot).
+    
+    CHANNEL INFO:
+    Name: ${channelDetails.title}
+    Description: ${channelDetails.description}
+    Subs: ${channelDetails.subscriberCount}
+    Videos: ${channelDetails.videoCount}
+    
+    RECENT VIDEOS (Last 15):
+    ${videos.map(v => `- Title: "${v.title}" | Date: ${v.publishedAt}`).join('\n')}
+    
+    DETECT THESE PATTERNS:
+    1. **Title Templating**: Are titles identical with 1 variable changed? (e.g. "Skibidi vs Creeper", "Skibidi vs Zombie").
+    2. **Upload Spam**: Are they uploading 5+ times a day?
+    3. **Keyword Salad**: Does the description look like SEO vomit?
+    4. **Low Effort**: Does it look like Reddit TTS or compilation spam?
+    
+    SCORING (0-100):
+    0 = Authentic Human Vlogger.
+    50 = High-Effort AI / Faceless Channel (The "Cyborg" Zone).
+    100 = Soulless Content Farm / Bot.
+    
+    VERDICT:
+    - HUMAN (0-39)
+    - CYBORG (40-79)
+    - NPC_FARM (80-100)
+    
+    RETURN RAW JSON ONLY.
+    
+    OUTPUT SCHEMA:
+    {
+       "botScore": number,
+       "verdict": "HUMAN" | "CYBORG" | "NPC_FARM",
+       "evidence": ["string", "string"],
+       "summary": "string"
+    }
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: modelId,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            botScore: { type: Type.NUMBER },
+            verdict: { type: Type.STRING, enum: ['HUMAN', 'CYBORG', 'NPC_FARM'] },
+            evidence: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING }
+            },
+            summary: { type: Type.STRING }
+          }
+        }
+      }
+    });
+    
+    if (!response.text) throw new Error("No response");
+    return JSON.parse(cleanJsonString(response.text)) as BotAnalysisResult;
+  } catch (e) {
+    console.error("Bot analysis failed", e);
+    throw e;
   }
 };

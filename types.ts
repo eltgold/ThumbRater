@@ -14,6 +14,13 @@ export interface AnalysisResult {
   susReason?: string;
 }
 
+export interface BotAnalysisResult {
+  botScore: number; // 0-100 (100 = Total Bot)
+  verdict: 'HUMAN' | 'CYBORG' | 'NPC_FARM';
+  evidence: string[];
+  summary: string;
+}
+
 export interface VideoDetails {
   id: string;
   url: string;
@@ -39,4 +46,21 @@ export interface ChangelogEntry {
   date: string;
   title: string;
   changes: string[];
+}
+
+export type SavedItemType = 'THUMB_RATER' | 'BOT_HUNTER';
+
+export interface SavedItem {
+  id: string;
+  date: string;
+  type: SavedItemType;
+  // Thumb Rater Data
+  thumbnailBase64?: string;
+  thumbnailResult?: AnalysisResult;
+  videoTitle?: string | null;
+  videoDesc?: string | null;
+  videoKeywords?: string[];
+  // Bot Hunter Data
+  botResult?: BotAnalysisResult;
+  channelDetails?: any; // Avoiding circular dependency with utils, simple object
 }

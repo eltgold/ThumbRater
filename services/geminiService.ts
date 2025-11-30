@@ -1,13 +1,29 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { AnalysisResult, ChatMessage, BotAnalysisResult, VideoAnalysisResult } from '../types';
 import { ChannelDetails, SearchResult, VideoMetadata } from '../utils/youtube';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Helper to get the best available API Key dynamically
+const getAiClient = () => {
+  const userKey = localStorage.getItem('ricetool_api_key');
+  // Prioritize User Key -> Env Key -> Hardcoded Fallback (from user history)
+  const apiKey = userKey || process.env.API_KEY || "AIzaSyDVcFhERQvxsfbVsjYZSFqW--Kwj2-PMK8";
+  return new GoogleGenAI({ apiKey });
+};
 
 // Helper to clean Markdown JSON code blocks
 const cleanJsonString = (str: string): string => {
   return str.replace(/```json\n?|```/g, '').trim();
+};
+
+// Timeout helper to prevent infinite hangs (30 seconds)
+const withTimeout = <T>(promise: Promise<T>, timeoutMs: number = 30000): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => 
+      setTimeout(() => reject(new Error("Request timed out (AI took too long)")), timeoutMs)
+    )
+  ]);
 };
 
 export const analyzeThumbnail = async (
@@ -16,6 +32,7 @@ export const analyzeThumbnail = async (
   metadata?: { title?: string | null, description?: string | null, keywords?: string[] | null }
 ): Promise<AnalysisResult> => {
   const modelId = "gemini-2.5-flash"; 
+  const ai = getAiClient();
 
   let contextPrompt = "";
   if (metadata?.title) {
@@ -78,7 +95,7 @@ export const analyzeThumbnail = async (
   `;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = (await withTimeout(ai.models.generateContent({
       model: modelId,
       contents: {
         parts: [
@@ -119,7 +136,7 @@ export const analyzeThumbnail = async (
           }
         }
       }
-    });
+    }))) as GenerateContentResponse;
 
     if (!response.text) throw new Error("No response from Gemini");
     return JSON.parse(cleanJsonString(response.text)) as AnalysisResult;
@@ -135,6 +152,8 @@ export const analyzeVideoContext = async (
   videoId: string
 ): Promise<VideoAnalysisResult> => {
   const modelId = "gemini-2.5-flash";
+  const ai = getAiClient();
+  
   const prompt = `
     Analyze this YouTube Video Metadata to provide a "Vibe Check" before we start chatting about it.
     
@@ -158,7 +177,7 @@ export const analyzeVideoContext = async (
   `;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = (await withTimeout(ai.models.generateContent({
         model: modelId,
         contents: prompt,
         config: {
@@ -173,7 +192,7 @@ export const analyzeVideoContext = async (
                 }
             }
         }
-    });
+    }))) as GenerateContentResponse;
     if (!response.text) throw new Error("No response");
     return JSON.parse(cleanJsonString(response.text));
   } catch (e) {
@@ -200,6 +219,7 @@ export const sendChatMessage = async (
   context: ChatContext
 ): Promise<string> => {
   const modelId = "gemini-2.5-flash";
+  const ai = getAiClient();
   const contents = [];
 
   let systemPromptText = "You are a Gen Z social media manager. Be helpful but snarky.";
@@ -309,13 +329,13 @@ export const sendChatMessage = async (
   }
 
   try {
-    const response = await ai.models.generateContent({
+    const response = (await withTimeout(ai.models.generateContent({
       model: modelId,
       contents: contents,
       config: {
         systemInstruction: systemPromptText
       }
-    });
+    }))) as GenerateContentResponse;
 
     return response.text || "I have no words.";
   } catch (error) {
@@ -329,6 +349,7 @@ export const analyzeBotProbability = async (
   videos: SearchResult[]
 ): Promise<BotAnalysisResult> => {
   const modelId = "gemini-2.5-flash";
+  const ai = getAiClient();
 
   const prompt = `
     Analyze this YouTube channel data to detect if it is a HUMAN, a CYBORG (Human using Heavy AI tools), or an NPC FARM (Fully Automated Bot).
@@ -370,7 +391,7 @@ export const analyzeBotProbability = async (
   `;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = (await withTimeout(ai.models.generateContent({
       model: modelId,
       contents: prompt,
       config: {
@@ -388,7 +409,7 @@ export const analyzeBotProbability = async (
           }
         }
       }
-    });
+    }))) as GenerateContentResponse;
     
     if (!response.text) throw new Error("No response");
     return JSON.parse(cleanJsonString(response.text)) as BotAnalysisResult;

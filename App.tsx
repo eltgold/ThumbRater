@@ -35,6 +35,16 @@ import clsx from 'clsx';
 
 const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+      version: "v2.17",
+      date: "2025-12-11",
+      title: "Anti-Hang Update",
+      changes: [
+          "Implemented 30s timeout for AI requests to prevent hanging.",
+          "Dynamic API Key switching (Uses your Settings key first!).",
+          "Fixed engine stalling on complex prompts."
+      ]
+  },
+  {
       version: "v2.16",
       date: "2025-12-10",
       title: "Couch Potato Update",
@@ -1354,7 +1364,7 @@ const App: React.FC = () => {
                              <Tape className="-top-3 right-10 rotate-[2deg]" />
                              <h2 className="text-xl font-bold uppercase leading-tight mb-2 line-clamp-2">{currentVideoMetadata?.title}</h2>
                              <div className="flex flex-wrap gap-2 text-xs font-bold">
-                                 {videoAnalysisResult?.topics.map(t => (
+                                 {videoAnalysisResult?.topics?.map(t => (
                                      <span key={t} className="bg-[#a78bfa] text-black px-2 border border-black">{t}</span>
                                  ))}
                                  <span className="bg-black text-white px-2 uppercase">{videoAnalysisResult?.tone}</span>
@@ -1422,7 +1432,7 @@ const App: React.FC = () => {
       {/* FOOTER */}
       <footer className="absolute bottom-4 w-full text-center font-bold text-xs pointer-events-none">
          <button onClick={() => setShowChangelog(true)} className="pointer-events-auto bg-white border-2 border-black px-3 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-y-[2px] transition-all uppercase">
-           v2.16 Changelog
+           v2.17 Changelog
          </button>
          <p className="mt-2 opacity-50">BUILT WITH HATE & LOVE</p>
       </footer>

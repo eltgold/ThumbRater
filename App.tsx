@@ -8,12 +8,23 @@ import {
   TriangleAlert, Siren, Bot, FolderOpen, Trash2, 
   ShoppingBag, Check, Hammer, Settings, Key, MonitorPlay, Eye, 
   EyeOff, ArrowLeft, Link2, HelpCircle, Flame, 
-  Home, Gamepad2, Music2, Cpu, Play, FileText, Download, MessageSquare, Megaphone
+  Home, Gamepad2, Music2, Cpu, Play, FileText, Download, MessageSquare, Megaphone,
+  RotateCw, RefreshCcw, Lock, Unlock
 } from 'lucide-react';
 import clsx from 'clsx';
 import { AnalysisChart } from './components/AnalysisChart';
 
 const CHANGELOG_DATA: ChangelogEntry[] = [
+  {
+      version: "v2.29",
+      date: "2025-12-19",
+      title: "the deep web update",
+      changes: [
+          "added captcha to sus tab.",
+          "added refresh button to ricetube.",
+          "randomized sus queries."
+      ]
+  },
   {
       version: "v2.28",
       date: "2025-12-18",
@@ -22,16 +33,6 @@ const CHANGELOG_DATA: ChangelogEntry[] = [
           "everything is lowercase now.",
           "added report channel button.",
           "fixed changelog modal."
-      ]
-  },
-  {
-      version: "v2.27",
-      date: "2025-12-17",
-      title: "the manual update",
-      changes: [
-          "added instruction manual.",
-          "removed experimental toggle.",
-          "restored all functionality."
       ]
   }
 ];
@@ -62,6 +63,8 @@ const RiceDroidAvatar = () => (
     </div>
 );
 
+const generateCaptcha = () => Math.random().toString(36).substring(7);
+
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('RATER');
   const [url, setUrl] = useState('');
@@ -87,6 +90,10 @@ const App: React.FC = () => {
   const [rtSelectedChannel, setRtSelectedChannel] = useState<SearchResult | null>(null);
   const [rtNextPageToken, setRtNextPageToken] = useState<string | undefined>(undefined);
   
+  const [isSusUnlocked, setIsSusUnlocked] = useState(false);
+  const [susCaptchaString, setSusCaptchaString] = useState(generateCaptcha());
+  const [susCaptchaInput, setSusCaptchaInput] = useState('');
+
   const [copiedItemId, setCopiedItemId] = useState<string | null>(null);
   const [revealedItems, setRevealedItems] = useState<Set<string>>(new Set());
 
@@ -155,6 +162,15 @@ const App: React.FC = () => {
       if (rtResults.length === 0) loadRiceTubeCategory('HOME');
   };
 
+  const refreshRiceTube = () => {
+      if (rtView === 'SEARCH') {
+          if (rtQuery) handleRiceTubeSearch();
+          else loadRiceTubeCategory(rtCategory);
+      } else if (rtView === 'CHANNEL' && rtSelectedChannel) {
+          handleRtItemClick(rtSelectedChannel);
+      }
+  };
+
   const loadRiceTubeCategory = async (cat: RiceTubeCategory) => {
       setRtCategory(cat);
       setRtView('SEARCH');
@@ -214,6 +230,21 @@ const App: React.FC = () => {
           } catch(e) { console.error(e); }
           finally { setRtIsLoading(false); }
       }
+  };
+
+  const handleCaptchaSubmit = () => {
+      if (susCaptchaInput === susCaptchaString) {
+          setIsSusUnlocked(true);
+          loadRiceTubeCategory('SUS');
+      } else {
+          alert("wrong code. are you a robot?");
+          setSusCaptchaString(generateCaptcha());
+          setSusCaptchaInput('');
+      }
+  };
+
+  const refreshCaptcha = () => {
+      setSusCaptchaString(generateCaptcha());
   };
 
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -570,8 +601,12 @@ const App: React.FC = () => {
                       </div>
                   </div>
                   <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2 bg-[#303030] px-3 py-1 rounded-full border border-zinc-600">
-                         <span className="text-xs font-bold text-zinc-400">unlocked</span>
+                      <button onClick={refreshRiceTube} className="p-2 hover:bg-zinc-700 rounded-full text-zinc-400 hover:text-white" title="refresh">
+                         <RotateCw className={clsx("w-6 h-6", rtIsLoading && "animate-spin")} />
+                      </button>
+                      <div className={clsx("flex items-center gap-2 px-3 py-1 rounded-full border", isSusUnlocked ? "bg-red-900/50 border-red-500 text-red-200" : "bg-[#303030] border-zinc-600")}>
+                         {isSusUnlocked ? <Unlock className="w-3 h-3"/> : <Lock className="w-3 h-3 text-zinc-400"/>}
+                         <span className="text-xs font-bold text-zinc-400">{isSusUnlocked ? "SafeSearch: OFF" : "locked"}</span>
                       </div>
                   </div>
               </div>
@@ -594,75 +629,103 @@ const App: React.FC = () => {
                           <Music2 className="w-5 h-5" /> music
                       </button>
                       <div className="border-t border-zinc-700 my-2"></div>
-                      <button onClick={() => loadRiceTubeCategory('SUS')} className={clsx("flex items-center gap-4 p-3 rounded-xl font-bold transition-colors", rtCategory === 'SUS' ? "bg-purple-600 text-white" : "hover:bg-zinc-700")}>
+                      <button onClick={() => rtCategory === 'SUS' && !isSusUnlocked ? null : loadRiceTubeCategory('SUS')} className={clsx("flex items-center gap-4 p-3 rounded-xl font-bold transition-colors", rtCategory === 'SUS' ? "bg-purple-600 text-white" : "hover:bg-zinc-700")}>
                           <Siren className="w-5 h-5" /> the deep web (sus)
                       </button>
                   </div>
 
                   <div className="flex-1 bg-[#181818] p-6 overflow-y-auto">
-                      {rtView === 'CHANNEL' && rtSelectedChannel && (
-                          <div className="mb-8">
-                              <button onClick={() => setRtView('SEARCH')} className="flex items-center gap-2 mb-4 text-zinc-400 hover:text-white">
-                                  <ArrowLeft className="w-4 h-4" /> back to search
-                              </button>
-                              <div className="flex items-center gap-6 bg-[#202020] p-6 rounded-2xl border border-zinc-700">
-                                  <img src={rtSelectedChannel.thumbnail} className="w-24 h-24 rounded-full border-2 border-white" />
-                                  <div>
-                                      <h2 className="text-3xl font-black">{rtSelectedChannel.title}</h2>
-                                      <div className="flex gap-2 mt-2">
-                                          <button onClick={(e) => handleCopy(rtSelectedChannel.id, 'channel', e)} className="px-4 py-2 bg-white text-black font-bold rounded-full hover:bg-zinc-200">
-                                              copy link
-                                          </button>
-                                          <button onClick={() => handleRtItemClick(rtSelectedChannel)} className="px-4 py-2 bg-zinc-700 text-white font-bold rounded-full hover:bg-zinc-600">
-                                              reload
-                                          </button>
-                                      </div>
+                      {rtCategory === 'SUS' && !isSusUnlocked ? (
+                          <div className="flex flex-col items-center justify-center h-full">
+                              <div className="bg-zinc-800 border-2 border-red-500 p-8 rounded-xl max-w-md w-full text-center shadow-xl">
+                                  <Siren className="w-16 h-16 text-red-500 mx-auto mb-4 animate-pulse" />
+                                  <h2 className="text-2xl font-black text-red-500 mb-2 uppercase">restricted area</h2>
+                                  <p className="mb-6 font-bold text-zinc-400">complete verification to enter the deep web.</p>
+                                  
+                                  <div className="bg-black p-4 mb-4 rounded border border-zinc-600 flex items-center justify-between">
+                                      <span className="font-mono text-3xl tracking-widest text-white line-through decoration-red-500 decoration-4 select-none blur-[1px]">{susCaptchaString}</span>
+                                      <button onClick={refreshCaptcha} className="p-2 hover:bg-zinc-800 rounded text-zinc-400"><RefreshCcw className="w-5 h-5"/></button>
                                   </div>
+                                  
+                                  <input 
+                                      type="text" 
+                                      value={susCaptchaInput}
+                                      onChange={(e) => setSusCaptchaInput(e.target.value)}
+                                      placeholder="enter code..."
+                                      className="w-full bg-zinc-900 border border-zinc-600 p-3 rounded mb-4 text-center font-bold text-xl uppercase"
+                                  />
+                                  <button onClick={handleCaptchaSubmit} className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded uppercase">
+                                      verify human
+                                  </button>
                               </div>
                           </div>
-                      )}
+                      ) : (
+                        <>
+                            {rtView === 'CHANNEL' && rtSelectedChannel && (
+                                <div className="mb-8">
+                                    <button onClick={() => setRtView('SEARCH')} className="flex items-center gap-2 mb-4 text-zinc-400 hover:text-white">
+                                        <ArrowLeft className="w-4 h-4" /> back to search
+                                    </button>
+                                    <div className="flex items-center gap-6 bg-[#202020] p-6 rounded-2xl border border-zinc-700">
+                                        <img src={rtSelectedChannel.thumbnail} className="w-24 h-24 rounded-full border-2 border-white" />
+                                        <div>
+                                            <h2 className="text-3xl font-black">{rtSelectedChannel.title}</h2>
+                                            <div className="flex gap-2 mt-2">
+                                                <button onClick={(e) => handleCopy(rtSelectedChannel.id, 'channel', e)} className="px-4 py-2 bg-white text-black font-bold rounded-full hover:bg-zinc-200">
+                                                    copy link
+                                                </button>
+                                                <button onClick={() => handleRtItemClick(rtSelectedChannel)} className="px-4 py-2 bg-zinc-700 text-white font-bold rounded-full hover:bg-zinc-600">
+                                                    reload
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                          {rtIsLoading ? (
-                              <div className="col-span-full flex justify-center py-20"><Loader2 className="w-12 h-12 animate-spin" /></div>
-                          ) : rtResults.map(item => {
-                              const isBlurred = item.isSus && !revealedItems.has(item.id);
-                              return (
-                                  <div key={item.id} onClick={() => handleRtItemClick(item)} className="group cursor-pointer bg-[#202020] rounded-xl overflow-hidden hover:bg-[#303030] transition-colors ring-1 ring-white/10">
-                                      <div className="aspect-video bg-black relative">
-                                          <img src={item.thumbnail} className={clsx("w-full h-full object-cover", isBlurred && "blur-xl opacity-50")} />
-                                          {item.type === 'video' && (
-                                              <span className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-1 rounded font-bold">vid</span>
-                                          )}
-                                          {isBlurred && (
-                                              <div className="absolute inset-0 flex items-center justify-center">
-                                                  <Siren className="w-8 h-8 text-red-500 animate-pulse" />
-                                              </div>
-                                          )}
-                                          {item.isSus && (
-                                            <button onClick={(e) => toggleReveal(item.id, e)} className="absolute top-2 left-2 p-1 bg-black/50 hover:bg-black rounded-lg text-white">
-                                                {isBlurred ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
-                                            </button>
-                                          )}
-                                          <button onClick={(e) => handleCopy(item.id, item.type, e)} className="absolute bottom-2 left-2 p-1.5 bg-black/50 hover:bg-red-600 rounded-lg text-white transition-colors">
-                                              {copiedItemId === item.id ? <Check className="w-4 h-4"/> : <Link2 className="w-4 h-4"/>}
-                                          </button>
-                                      </div>
-                                      <div className="p-3">
-                                          <h3 className="font-bold line-clamp-2 leading-tight" dangerouslySetInnerHTML={{ __html: item.title }}></h3>
-                                          <p className="text-sm text-zinc-400 mt-1">{item.channelTitle}</p>
-                                      </div>
-                                  </div>
-                              );
-                          })}
-                      </div>
-                      
-                      {rtView === 'CHANNEL' && rtNextPageToken && !rtIsLoading && (
-                          <div className="flex justify-center mt-8">
-                              <button onClick={handleLoadMore} className="bg-white text-black font-bold uppercase py-3 px-8 rounded-full hover:bg-zinc-200">
-                                  load more videos
-                              </button>
-                          </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                {rtIsLoading ? (
+                                    <div className="col-span-full flex justify-center py-20"><Loader2 className="w-12 h-12 animate-spin" /></div>
+                                ) : rtResults.map(item => {
+                                    const isBlurred = item.isSus && !revealedItems.has(item.id);
+                                    return (
+                                        <div key={item.id} onClick={() => handleRtItemClick(item)} className="group cursor-pointer bg-[#202020] rounded-xl overflow-hidden hover:bg-[#303030] transition-colors ring-1 ring-white/10">
+                                            <div className="aspect-video bg-black relative">
+                                                <img src={item.thumbnail} className={clsx("w-full h-full object-cover", isBlurred && "blur-xl opacity-50")} />
+                                                {item.type === 'video' && (
+                                                    <span className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-1 rounded font-bold">vid</span>
+                                                )}
+                                                {isBlurred && (
+                                                    <div className="absolute inset-0 flex items-center justify-center">
+                                                        <Siren className="w-8 h-8 text-red-500 animate-pulse" />
+                                                    </div>
+                                                )}
+                                                {item.isSus && (
+                                                    <button onClick={(e) => toggleReveal(item.id, e)} className="absolute top-2 left-2 p-1 bg-black/50 hover:bg-black rounded-lg text-white">
+                                                        {isBlurred ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
+                                                    </button>
+                                                )}
+                                                <button onClick={(e) => handleCopy(item.id, item.type, e)} className="absolute bottom-2 left-2 p-1.5 bg-black/50 hover:bg-red-600 rounded-lg text-white transition-colors">
+                                                    {copiedItemId === item.id ? <Check className="w-4 h-4"/> : <Link2 className="w-4 h-4"/>}
+                                                </button>
+                                            </div>
+                                            <div className="p-3">
+                                                <h3 className="font-bold line-clamp-2 leading-tight" dangerouslySetInnerHTML={{ __html: item.title }}></h3>
+                                                <p className="text-sm text-zinc-400 mt-1">{item.channelTitle}</p>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            
+                            {rtView === 'CHANNEL' && rtNextPageToken && !rtIsLoading && (
+                                <div className="flex justify-center mt-8">
+                                    <button onClick={handleLoadMore} className="bg-white text-black font-bold uppercase py-3 px-8 rounded-full hover:bg-zinc-200">
+                                        load more videos
+                                    </button>
+                                </div>
+                            )}
+                        </>
                       )}
                   </div>
               </div>
@@ -1313,7 +1376,7 @@ const App: React.FC = () => {
 
       <footer className="absolute bottom-4 w-full text-center font-bold text-xs pointer-events-none">
          <button onClick={() => setShowChangelog(true)} className="pointer-events-auto bg-white border-2 border-black px-3 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-y-[2px] transition-all uppercase dark:bg-zinc-800 dark:text-white dark:border-white dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]">
-           v2.28 changelog
+           v2.29 changelog
          </button>
          <p className="mt-2 opacity-50 bg-white/50 inline-block px-1 dark:text-white dark:bg-zinc-900/50">built with hate & love</p>
       </footer>

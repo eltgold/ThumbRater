@@ -246,7 +246,18 @@ export const fetchExploreFeed = async (category: 'HOME' | 'TRENDING' | 'GAMING' 
           query = 'trending viral video now';
           break;
       case 'SUS':
-          query = 'hot tiktok compilation viral'; 
+          // Randomized query to make it deeper/weirder every refresh
+          const susQueries = [
+              'scary footage caught on camera',
+              'weird youtube videos',
+              'liminal spaces compilation',
+              'unsettling videos',
+              'internet mysteries',
+              'cursed videos playlist',
+              'found footage horror',
+              'strange internet rabbit holes'
+          ];
+          query = susQueries[Math.floor(Math.random() * susQueries.length)];
           break;
       case 'HOME':
       default:

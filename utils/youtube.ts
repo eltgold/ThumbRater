@@ -1,4 +1,5 @@
 
+
 export const extractVideoId = (url: string): string | null => {
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
   const match = url.match(regExp);
@@ -69,12 +70,22 @@ const INVIDIOUS_INSTANCES = [
   'https://invidious.nerdvpn.de'
 ];
 
+// Helper to get the best available API Key
+const getApiKey = (): string | null => {
+  // 1. User provided key
+  const userKey = localStorage.getItem('ricetool_api_key');
+  if (userKey) return userKey;
+  
+  // 2. Hardcoded fallback (Might hit quota limits)
+  return "AIzaSyDVcFhERQvxsfbVsjYZSFqW--Kwj2-PMK8";
+};
+
 export const fetchVideoMetadata = async (videoId: string): Promise<VideoMetadata> => {
   console.log("Fetching metadata for:", videoId);
 
   // STRATEGY 1: Official YouTube Data API v3
   try {
-    const apiKey = "AIzaSyDVcFhERQvxsfbVsjYZSFqW--Kwj2-PMK8";
+    const apiKey = getApiKey();
     if (apiKey) {
       console.log("Attempting YouTube Data API v3...");
       const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${apiKey}`;
@@ -147,7 +158,7 @@ export const fetchVideoMetadata = async (videoId: string): Promise<VideoMetadata
 
 export const fetchChannelDetails = async (channelId: string): Promise<ChannelDetails | null> => {
     try {
-        const apiKey = "AIzaSyDVcFhERQvxsfbVsjYZSFqW--Kwj2-PMK8";
+        const apiKey = getApiKey();
         if (apiKey) {
             const apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${channelId}&key=${apiKey}`;
             const response = await fetch(apiUrl);
@@ -193,14 +204,14 @@ export const searchYouTubeVideos = async (query: string): Promise<SearchResult[]
   console.log("Searching for:", query);
   
   try {
-    const apiKey = "AIzaSyDVcFhERQvxsfbVsjYZSFqW--Kwj2-PMK8";
+    const apiKey = getApiKey();
     if (apiKey) {
       const apiUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video,channel&q=${encodeURIComponent(query)}&key=${apiKey}&maxResults=16`;
       const response = await fetch(apiUrl);
       
       if (response.ok) {
         const data = await response.json();
-        if (data.items) {
+        if (data.items && Array.isArray(data.items)) {
           return data.items.map((item: any) => ({
             id: item.id.videoId || item.id.channelId,
             type: item.id.channelId ? 'channel' : 'video',
@@ -242,17 +253,24 @@ export const searchYouTubeVideos = async (query: string): Promise<SearchResult[]
   return [];
 };
 
+// NEW: Fetches a "Creator Feed" (Vlog, Tech, Gaming) excluding music
+export const fetchExploreFeed = async (): Promise<SearchResult[]> => {
+  // Query designed to capture typical YouTuber content and filter out music
+  const query = "(vlog|gaming|tech|challenge|commentary|analysis) -vevo -lyrics -\"official music video\"";
+  return searchYouTubeVideos(query);
+};
+
 export const fetchChannelLatestVideos = async (channelId: string): Promise<SearchResult[]> => {
     console.log("Fetching videos for channel:", channelId);
     
     try {
-        const apiKey = "AIzaSyDVcFhERQvxsfbVsjYZSFqW--Kwj2-PMK8";
+        const apiKey = getApiKey();
         if (apiKey) {
             const apiUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}&order=date&type=video&maxResults=15&key=${apiKey}`;
             const response = await fetch(apiUrl);
              if (response.ok) {
                 const data = await response.json();
-                if (data.items) {
+                if (data.items && Array.isArray(data.items)) {
                     return data.items.map((item: any) => ({
                         id: item.id.videoId,
                         type: 'video',

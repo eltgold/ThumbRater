@@ -1,6 +1,7 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
-import { AnalysisResult, ChatMessage, BotAnalysisResult } from '../types';
-import { ChannelDetails, SearchResult } from '../utils/youtube';
+import { AnalysisResult, ChatMessage, BotAnalysisResult, VideoAnalysisResult } from '../types';
+import { ChannelDetails, SearchResult, VideoMetadata } from '../utils/youtube';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -129,14 +130,68 @@ export const analyzeThumbnail = async (
   }
 };
 
+export const analyzeVideoContext = async (
+  metadata: VideoMetadata, 
+  videoId: string
+): Promise<VideoAnalysisResult> => {
+  const modelId = "gemini-2.5-flash";
+  const prompt = `
+    Analyze this YouTube Video Metadata to provide a "Vibe Check" before we start chatting about it.
+    
+    VIDEO TITLE: "${metadata.title}"
+    CHANNEL: "${metadata.channelTitle}"
+    DESCRIPTION: "${metadata.description?.substring(0, 1000)}"
+    KEYWORDS: "${metadata.keywords?.join(', ')}"
+    
+    Task:
+    1. Summarize what this video is likely about in 1 snarky/funny sentence.
+    2. Identify 3 main topics.
+    3. Determine the "Tone" (e.g., Cringy, Educational, Clickbait, Wholesome).
+    
+    Output JSON:
+    {
+      "videoId": "${videoId}",
+      "summary": "string",
+      "topics": ["string", "string", "string"],
+      "tone": "string"
+    }
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+        model: modelId,
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    videoId: { type: Type.STRING },
+                    summary: { type: Type.STRING },
+                    topics: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    tone: { type: Type.STRING }
+                }
+            }
+        }
+    });
+    if (!response.text) throw new Error("No response");
+    return JSON.parse(cleanJsonString(response.text));
+  } catch (e) {
+      throw e;
+  }
+};
+
 export interface ChatContext {
-  type: 'RATER' | 'BOT_HUNTER';
+  type: 'RATER' | 'BOT_HUNTER' | 'VIDEO_CHAT';
   // Rater Props
   imageBase64?: string | null;
   raterResult?: AnalysisResult | null;
   // Bot Props
   botResult?: BotAnalysisResult | null;
   channelDetails?: ChannelDetails | null;
+  // Video Chat Props
+  videoResult?: VideoAnalysisResult | null;
+  videoMetadata?: VideoMetadata | null;
 }
 
 export const sendChatMessage = async (
@@ -147,7 +202,7 @@ export const sendChatMessage = async (
   const modelId = "gemini-2.5-flash";
   const contents = [];
 
-  let systemPromptText = "You are a Gen Z social media manager who is tired. Be helpful but snarky.";
+  let systemPromptText = "You are a Gen Z social media manager. Be helpful but snarky.";
   let initialUserParts = [];
 
   if (context.type === 'RATER' && context.raterResult && context.imageBase64) {
@@ -182,6 +237,29 @@ export const sendChatMessage = async (
     initialUserParts = [
       { text: botContext }
     ];
+  } else if (context.type === 'VIDEO_CHAT' && context.videoMetadata) {
+      systemPromptText = "You are 'CouchBuddy', a friend watching this video with the user.";
+      const vidContext = `
+        We are "watching" a YouTube Video via its metadata (we can't see the pixels, but we know the content).
+        Title: "${context.videoMetadata.title}"
+        Channel: "${context.videoMetadata.channelTitle}"
+        Description: "${context.videoMetadata.description?.substring(0, 800)}"
+        Tags: "${context.videoMetadata.keywords?.join(', ')}"
+        
+        Initial Vibe Check: ${context.videoResult?.summary}
+        Tone: ${context.videoResult?.tone}
+
+        User Input: "${newMessage}"
+
+        Instructions:
+        - Act like you are watching it right now.
+        - Since you can't see the frames, assume content based on the Title/Desc/Tags.
+        - If the user asks about a specific visual moment you can't see, joke about it or make an educated guess based on the description, or ask them to describe it.
+        - Be funny, opinionated, and use internet slang.
+      `;
+      initialUserParts = [
+          { text: vidContext }
+      ];
   }
 
   if (history.length === 0) {
@@ -209,6 +287,12 @@ export const sendChatMessage = async (
         role: 'user',
         parts: [{ text: contextMsg }]
       });
+    } else if (context.type === 'VIDEO_CHAT' && context.videoMetadata) {
+        contextMsg = `We are discussing the video "${context.videoMetadata.title}".`;
+        contents.push({
+            role: 'user',
+            parts: [{ text: contextMsg }]
+        });
     }
 
     history.forEach(msg => {

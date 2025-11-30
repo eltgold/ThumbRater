@@ -1,3 +1,4 @@
+
 export interface ThumbnailScores {
   clarity: number;
   curiosity: number;
@@ -19,6 +20,13 @@ export interface BotAnalysisResult {
   verdict: 'HUMAN' | 'CYBORG' | 'NPC_FARM';
   evidence: string[];
   summary: string;
+}
+
+export interface VideoAnalysisResult {
+  videoId: string;
+  summary: string; // Initial AI analysis of the video topic
+  topics: string[];
+  tone: string;
 }
 
 export interface VideoDetails {
@@ -48,7 +56,7 @@ export interface ChangelogEntry {
   changes: string[];
 }
 
-export type SavedItemType = 'THUMB_RATER' | 'BOT_HUNTER';
+export type SavedItemType = 'THUMB_RATER' | 'BOT_HUNTER' | 'VIDEO_CHAT';
 
 export interface SavedItem {
   id: string;
@@ -62,5 +70,7 @@ export interface SavedItem {
   videoKeywords?: string[];
   // Bot Hunter Data
   botResult?: BotAnalysisResult;
-  channelDetails?: any; // Avoiding circular dependency with utils, simple object
+  channelDetails?: any;
+  // Video Chat Data
+  videoResult?: VideoAnalysisResult;
 }

@@ -1,29 +1,23 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { extractVideoId, blobToBase64, fetchVideoMetadata, searchYouTubeVideos, fetchChannelLatestVideos, SearchResult, fetchChannelDetails, extractChannelId, ChannelDetails } from './utils/youtube';
-import { analyzeThumbnail, sendChatMessage, analyzeBotProbability } from './services/geminiService';
-import { AppState, AnalysisResult, ChatMessage, ChangelogEntry, BotAnalysisResult, SavedItem, SavedItemType } from './types';
+import { extractVideoId, blobToBase64, fetchVideoMetadata, searchYouTubeVideos, fetchChannelLatestVideos, SearchResult, fetchChannelDetails, extractChannelId, ChannelDetails, fetchExploreFeed, VideoMetadata } from './utils/youtube';
+import { analyzeThumbnail, sendChatMessage, analyzeBotProbability, analyzeVideoContext } from './services/geminiService';
+import { AppState, AnalysisResult, ChatMessage, ChangelogEntry, BotAnalysisResult, SavedItem, SavedItemType, VideoAnalysisResult } from './types';
 import { AnalysisChart } from './components/AnalysisChart';
 import { ScoreCard } from './components/ScoreCard';
 import { 
   Youtube, 
   Search, 
   CloudUpload, 
-  AlertCircle, 
-  CheckCircle2, 
-  Sparkles, 
-  Eye, 
-  Type, 
-  Smile, 
-  Target,
+  CircleAlert, 
   Loader2,
   MessageSquare,
   Send,
   X,
-  AlertTriangle,
+  TriangleAlert,
   History,
   Siren,
   Bot,
-  Save,
   Download,
   FolderOpen,
   Trash2,
@@ -32,13 +26,46 @@ import {
   Check,
   Zap,
   Hammer,
-  BoxSelect,
   FileText,
-  Terminal
+  Settings,
+  Key,
+  MonitorPlay
 } from 'lucide-react';
 import clsx from 'clsx';
 
 const CHANGELOG_DATA: ChangelogEntry[] = [
+  {
+      version: "v2.16",
+      date: "2025-12-10",
+      title: "Couch Potato Update",
+      changes: [
+          "Added 'ASK VIDEO' tab.",
+          "Chat with the AI about any video.",
+          "Embedded video player.",
+          "AI pretends to watch the video with you."
+      ]
+  },
+  {
+      version: "v2.15",
+      date: "2025-12-09",
+      title: "The Fix-It Felix",
+      changes: [
+          "Fixed the annoying scroll bug in Patch Notes.",
+          "Fixed the invisible type cursor.",
+          "Added API Key Settings (BYOK).",
+          "Better search relevance with Custom API Key."
+      ]
+  },
+  {
+      version: "v2.14",
+      date: "2025-12-08",
+      title: "Store Fix",
+      changes: [
+          "Fixed Video Store showing only Music Videos.",
+          "Added 'Explore Feed' for YouTubers.",
+          "Auto-load content when opening store."
+      ]
+  },
   {
     version: "v2.13",
     date: "2025-12-07",
@@ -60,29 +87,10 @@ const CHANGELOG_DATA: ChangelogEntry[] = [
       "Dumb design is BACK FOREVER.",
       "Changelog is fixed (hopefully)."
     ]
-  },
-  {
-    version: "v2.11",
-    date: "2025-12-07",
-    title: "The Mistake Update",
-    changes: [
-      "Tried to be professional.",
-      "Hated it.",
-      "Reverted immediately."
-    ]
-  },
-  {
-    version: "v2.2",
-    date: "2025-12-06",
-    title: "The Silly Update",
-    changes: [
-      "Added Hammer Logo.",
-      "Added Chaos Mode.",
-    ]
   }
 ];
 
-type ActiveTab = 'RATER' | 'BOT_HUNTER';
+type ActiveTab = 'RATER' | 'BOT_HUNTER' | 'VIDEO_CHAT';
 
 // --- CUSTOM COMPONENTS ---
 const SmashLogo = () => (
@@ -127,6 +135,11 @@ const App: React.FC = () => {
   // Bot Hunter State
   const [botResult, setBotResult] = useState<BotAnalysisResult | null>(null);
   const [analyzingChannel, setAnalyzingChannel] = useState<ChannelDetails | null>(null);
+
+  // Video Chat State
+  const [videoAnalysisResult, setVideoAnalysisResult] = useState<VideoAnalysisResult | null>(null);
+  const [currentVideoMetadata, setCurrentVideoMetadata] = useState<VideoMetadata | null>(null);
+  const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
   
   // UI State
   const [showImageWarning, setShowImageWarning] = useState(false);
@@ -134,7 +147,11 @@ const App: React.FC = () => {
   const [showSusContent, setShowSusContent] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showSavedList, setShowSavedList] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   
+  // Settings State
+  const [apiKeyInput, setApiKeyInput] = useState('');
+
   // Storage State
   const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
   
@@ -155,17 +172,49 @@ const App: React.FC = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory, isChatLoading]);
 
-  // Load saved items from local storage on mount
+  // Load saved items and API Key from local storage on mount
   useEffect(() => {
     try {
-      const stored = localStorage.getItem('thumb_rate_saved');
-      if (stored) {
-        setSavedItems(JSON.parse(stored));
+      const storedItems = localStorage.getItem('thumb_rate_saved');
+      if (storedItems) {
+        setSavedItems(JSON.parse(storedItems));
+      }
+      const storedKey = localStorage.getItem('ricetool_api_key');
+      if (storedKey) {
+        setApiKeyInput(storedKey);
       }
     } catch (e) {
       console.error("Failed to load saved items", e);
     }
   }, []);
+
+  // Auto-fetch explore feed when Store is opened
+  useEffect(() => {
+      if (showStoreModal && storeResults.length === 0) {
+          setIsStoreSearching(true);
+          fetchExploreFeed()
+            .then(results => setStoreResults(results))
+            .catch(console.error)
+            .finally(() => setIsStoreSearching(false));
+      }
+  }, [showStoreModal]);
+
+  const saveApiKey = () => {
+    const key = apiKeyInput.trim();
+    if (key) {
+      localStorage.setItem('ricetool_api_key', key);
+    } else {
+      localStorage.removeItem('ricetool_api_key');
+    }
+    setShowSettingsModal(false);
+    // Reload feed if store is open to apply new key
+    if (showStoreModal) {
+      setStoreResults([]);
+      setIsStoreSearching(true);
+      fetchExploreFeed().then(setStoreResults).finally(() => setIsStoreSearching(false));
+    }
+    alert("API Key Settings Saved!");
+  };
 
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUrl(e.target.value);
@@ -179,6 +228,9 @@ const App: React.FC = () => {
     setResult(null);
     setBotResult(null);
     setAnalyzingChannel(null);
+    setVideoAnalysisResult(null);
+    setCurrentVideoMetadata(null);
+    setActiveVideoId(null);
     setVideoTitle(null);
     setVideoDesc(null);
     setVideoKeywords([]);
@@ -254,6 +306,31 @@ const App: React.FC = () => {
     }
   };
 
+  const runVideoChatInit = async (videoId: string) => {
+      setAppState(AppState.ANALYZING);
+      setActiveVideoId(videoId);
+      
+      try {
+          const meta = await fetchVideoMetadata(videoId);
+          if (!meta.title) throw new Error("Could not fetch metadata");
+          setCurrentVideoMetadata(meta);
+
+          const result = await analyzeVideoContext(meta, videoId);
+          setVideoAnalysisResult(result);
+          setAppState(AppState.SUCCESS);
+          
+          // Seed initial chat
+          setChatHistory([{
+              role: 'model',
+              text: `Yo! I'm watching "${meta.title}" with you. ${result.summary}`
+          }]);
+      } catch (e) {
+          console.error(e);
+          setErrorMsg("Could not process video. Check the link.");
+          setAppState(AppState.ERROR);
+      }
+  };
+
   const handleInputSubmit = async () => {
     const input = url.trim();
     if (!input) return;
@@ -267,7 +344,17 @@ const App: React.FC = () => {
          setErrorMsg("Invalid YouTube Video URL.");
          setAppState(AppState.ERROR);
       }
+    } else if (activeTab === 'VIDEO_CHAT') {
+        const videoId = extractVideoId(input);
+        if (videoId) {
+            resetAnalysis();
+            runVideoChatInit(videoId);
+        } else {
+            setErrorMsg("Invalid YouTube Video URL.");
+            setAppState(AppState.ERROR);
+        }
     } else {
+      // BOT HUNTER
       resetAnalysis();
       let channelId = extractChannelId(input);
       const videoId = extractVideoId(input);
@@ -318,8 +405,8 @@ const App: React.FC = () => {
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (activeTab === 'BOT_HUNTER') {
-        alert("Bot analysis requires a channel link.");
+    if (activeTab === 'BOT_HUNTER' || activeTab === 'VIDEO_CHAT') {
+        alert("This mode requires a YouTube link.");
         return;
     }
     const file = e.target.files?.[0];
@@ -362,6 +449,7 @@ const App: React.FC = () => {
 
     if (activeTab === 'RATER' && (!imageBase64 || !result)) return;
     if (activeTab === 'BOT_HUNTER' && (!botResult || !analyzingChannel)) return;
+    if (activeTab === 'VIDEO_CHAT' && (!videoAnalysisResult || !currentVideoMetadata)) return;
 
     const userMsg = chatInput;
     setChatInput('');
@@ -374,7 +462,9 @@ const App: React.FC = () => {
           imageBase64: imageBase64,
           raterResult: result,
           botResult: botResult,
-          channelDetails: analyzingChannel
+          channelDetails: analyzingChannel,
+          videoResult: videoAnalysisResult,
+          videoMetadata: currentVideoMetadata
       });
       setChatHistory(prev => [...prev, { role: 'model', text: aiResponse }]);
     } catch (error) {
@@ -407,12 +497,16 @@ const App: React.FC = () => {
         channelDetails: analyzingChannel
       };
     }
+    // Note: Video Chat saving not implemented in this version to save space/complexity
     return null;
   };
 
   const handleSaveToApp = () => {
     const item = prepareSaveItem();
-    if (!item) return;
+    if (!item) {
+        alert("Saving for this mode isn't supported yet.");
+        return;
+    }
 
     const newItems = [item, ...savedItems];
     setSavedItems(newItems);
@@ -423,7 +517,10 @@ const App: React.FC = () => {
 
   const handleDownloadJSON = () => {
     const item = prepareSaveItem();
-    if (!item) return;
+    if (!item) {
+         alert("Exporting for this mode isn't supported yet.");
+         return;
+    }
 
     const blob = new Blob([JSON.stringify(item, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -492,6 +589,65 @@ const App: React.FC = () => {
       
       {/* --- MODALS (BRUTALIST STYLE) --- */}
       
+      {/* Settings Modal */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4 font-sans">
+           <div className="relative max-w-lg w-full">
+             {/* Wrapper for Rotation to avoid Scroll Clipping */}
+             <div className="absolute inset-0 bg-white border-[3px] border-black hard-shadow rotate-1 pointer-events-none"></div>
+             
+             <div className="relative bg-white border-[3px] border-black p-6 hard-shadow flex flex-col z-10">
+               <Tape className="-top-4 left-1/2 -translate-x-1/2" />
+               <div className="flex justify-between items-center mb-6 border-b-[3px] border-black pb-4">
+                  <h2 className="text-xl font-bold text-black uppercase flex items-center gap-2">
+                     <Settings className="w-6 h-6 animate-spin-slow" /> API & Account
+                  </h2>
+                  <button onClick={() => setShowSettingsModal(false)} className="hover:bg-zinc-100 p-1 border-2 border-transparent hover:border-black transition-all">
+                     <X className="w-5 h-5" />
+                  </button>
+               </div>
+               
+               <div className="space-y-4">
+                  <p className="font-bold text-sm bg-blue-50 border-2 border-blue-200 p-3">
+                     Connect your <span className="bg-[#fde047] px-1 border border-black">YouTube Data API Key</span> to access detailed account-level data.
+                     This allows for customized search results, precise metadata fetching, and finding content specific to your region or preferences in the Video Store.
+                  </p>
+                  
+                  <div className="flex flex-col gap-2">
+                     <label className="text-xs font-bold uppercase tracking-wider">Your API Key:</label>
+                     <div className="flex gap-2">
+                        <div className="relative flex-1">
+                           <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                           <input 
+                              type="text" 
+                              value={apiKeyInput}
+                              onChange={(e) => setApiKeyInput(e.target.value)}
+                              placeholder="AIzaSy..."
+                              className="w-full border-[3px] border-black p-2 pl-9 font-bold font-mono text-sm outline-none focus:bg-zinc-50 caret-black cursor-text z-20 relative"
+                           />
+                        </div>
+                     </div>
+                  </div>
+
+                  <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="flex items-center gap-2 text-xs font-bold text-blue-600 hover:underline uppercase">
+                     <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" className="w-4 h-4" />
+                     Get a key from Google Cloud
+                  </a>
+
+                  <div className="flex gap-3 mt-4 pt-4 border-t-[3px] border-black border-dashed">
+                     <button onClick={saveApiKey} className="flex-1 bg-[#86efac] text-black py-3 font-bold border-[3px] border-black hard-shadow-sm active:shadow-none active:translate-y-1 uppercase transition-all">
+                        Save Config
+                     </button>
+                     <button onClick={() => { setApiKeyInput(''); localStorage.removeItem('ricetool_api_key'); alert("Key cleared."); }} className="bg-zinc-200 text-black px-4 font-bold border-[3px] border-black hard-shadow-sm active:shadow-none active:translate-y-1 uppercase transition-all">
+                        Clear
+                     </button>
+                  </div>
+               </div>
+             </div>
+           </div>
+        </div>
+      )}
+
       {/* Save Modal */}
       {showSaveModal && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4 font-sans">
@@ -514,75 +670,78 @@ const App: React.FC = () => {
       {/* Store Modal */}
       {showStoreModal && (
         <div className="fixed inset-0 z-[115] flex items-center justify-center bg-black/50 p-4 font-sans">
-           <div className="bg-white border-[3px] border-black w-full max-w-5xl max-h-[85vh] overflow-y-auto hard-shadow flex flex-col rotate-[-1deg]">
-              <Tape className="-top-4 right-10 rotate-[2deg]" />
-              <div className="bg-[#fde047] sticky top-0 p-4 border-b-[3px] border-black flex justify-between items-center z-10">
-                 <div className="flex items-center gap-3">
-                   <div className="p-2 bg-white border-2 border-black rounded-full shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"><ShoppingBag className="w-5 h-5 text-black" /></div>
-                   <h2 className="text-xl font-bold text-black uppercase tracking-tight">Video Store</h2>
-                 </div>
-                 <button onClick={() => setShowStoreModal(false)} className="p-2 bg-[#ef4444] hover:bg-red-600 border-2 border-black text-white font-bold transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-y-[2px]">
-                   <X className="w-5 h-5" />
-                 </button>
-              </div>
-              
-              <div className="p-6 bg-dots">
-                 <div className="flex gap-2 max-w-2xl mx-auto mb-8">
-                    <div className="flex-1 flex items-center bg-white border-[3px] border-black px-4 h-14 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                      <Search className="w-6 h-6 text-black mr-3" />
-                      <input 
-                        type="text" 
-                        placeholder="SEARCH STUFF..."
-                        className="w-full bg-transparent outline-none text-black placeholder-zinc-500 font-bold text-lg uppercase caret-black"
-                        value={storeQuery}
-                        onChange={(e) => setStoreQuery(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleStoreSearch()}
-                      />
+           {/* Rotation Wrapper */}
+           <div className="relative w-full max-w-5xl rotate-[-1deg] max-h-[85vh]">
+              <div className="bg-white border-[3px] border-black w-full h-full flex flex-col hard-shadow overflow-hidden">
+                  <Tape className="-top-4 right-10 rotate-[2deg]" />
+                  <div className="bg-[#fde047] p-4 border-b-[3px] border-black flex justify-between items-center shrink-0 z-10">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-white border-2 border-black rounded-full shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"><ShoppingBag className="w-5 h-5 text-black" /></div>
+                      <h2 className="text-xl font-bold text-black uppercase tracking-tight">Video Store</h2>
                     </div>
-                    <button 
-                      onClick={handleStoreSearch} 
-                      className="bg-black text-white px-8 font-bold text-xl border-[3px] border-black hover:bg-zinc-800 transition-colors shadow-[4px_4px_0px_0px_rgba(0,0,0,0)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)]"
-                    >
-                      {isStoreSearching ? <Loader2 className="animate-spin" /> : "GO"}
+                    <button onClick={() => setShowStoreModal(false)} className="p-2 bg-[#ef4444] hover:bg-red-600 border-2 border-black text-white font-bold transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-y-[2px]">
+                      <X className="w-5 h-5" />
                     </button>
-                 </div>
-
-                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                 {storeResults.length === 0 && !isStoreSearching && (
-                    <div className="col-span-full flex flex-col items-center justify-center text-center py-20 opacity-30 rotate-3">
-                       <ShoppingBag className="w-24 h-24 mb-4 stroke-[1.5]" />
-                       <p className="text-2xl font-bold uppercase">Search something bro</p>
-                    </div>
-                 )}
-                 {storeResults.map((item, idx) => (
-                    <div 
-                    key={item.id}
-                    onClick={() => handleCopyLink(item)}
-                    className={clsx(
-                        "group cursor-pointer bg-white border-[3px] border-black hard-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all relative",
-                        idx % 2 === 0 ? "rotate-1" : "rotate-[-1deg]"
-                    )}
-                    >
-                      {copiedItemId === item.id && (
-                        <div className="absolute inset-0 bg-[#fde047] z-20 flex items-center justify-center flex-col animate-in fade-in duration-200 border-[3px] border-black">
-                           <Check className="w-12 h-12 text-black" />
-                           <p className="text-black text-sm font-bold mt-2 tracking-widest uppercase bg-white px-2 border-2 border-black rotate-[-2deg]">COPIED!</p>
+                  </div>
+                  
+                  <div className="p-6 bg-dots overflow-y-auto">
+                    <div className="flex gap-2 max-w-2xl mx-auto mb-8">
+                        <div className="flex-1 flex items-center bg-white border-[3px] border-black px-4 h-14 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                          <Search className="w-6 h-6 text-black mr-3" />
+                          <input 
+                            type="text" 
+                            placeholder="SEARCH STUFF..."
+                            className="w-full bg-transparent outline-none text-black placeholder-zinc-500 font-bold text-lg uppercase caret-black cursor-text"
+                            value={storeQuery}
+                            onChange={(e) => setStoreQuery(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleStoreSearch()}
+                          />
                         </div>
-                      )}
-
-                      <div className="aspect-video bg-black relative border-b-[3px] border-black">
-                          <img src={item.thumbnail} alt={item.title} className="w-full h-full object-cover" />
-                          <div className={clsx("absolute top-2 right-2 text-black text-[10px] font-bold px-2 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]", item.type === 'channel' ? "bg-[#f9a8d4] rotate-3" : "bg-white rotate-[-2deg]")}>
-                             {item.type === 'channel' ? 'USER' : 'VID'}
-                          </div>
-                      </div>
-                      <div className="p-3 bg-zinc-50">
-                         <h3 className="font-bold text-sm text-black line-clamp-2 mb-1 leading-tight" dangerouslySetInnerHTML={{ __html: item.title }}></h3>
-                         <p className="text-xs text-zinc-500 font-bold uppercase tracking-wide">{item.channelTitle}</p>
-                      </div>
+                        <button 
+                          onClick={handleStoreSearch} 
+                          className="bg-black text-white px-8 font-bold text-xl border-[3px] border-black hover:bg-zinc-800 transition-colors shadow-[4px_4px_0px_0px_rgba(0,0,0,0)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)]"
+                        >
+                          {isStoreSearching ? <Loader2 className="animate-spin" /> : "GO"}
+                        </button>
                     </div>
-                ))}
-                </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {storeResults?.length === 0 && !isStoreSearching && (
+                        <div className="col-span-full flex flex-col items-center justify-center text-center py-20 opacity-30">
+                          <Loader2 className="w-12 h-12 mb-4 animate-spin text-black" />
+                          <p className="text-xl font-bold uppercase">Loading Explore Feed...</p>
+                        </div>
+                    )}
+                    {storeResults?.map((item, idx) => (
+                        <div 
+                        key={item.id}
+                        onClick={() => handleCopyLink(item)}
+                        className={clsx(
+                            "group cursor-pointer bg-white border-[3px] border-black hard-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all relative",
+                            idx % 2 === 0 ? "rotate-1" : "rotate-[-1deg]"
+                        )}
+                        >
+                          {copiedItemId === item.id && (
+                            <div className="absolute inset-0 bg-[#fde047] z-20 flex items-center justify-center flex-col animate-in fade-in duration-200 border-[3px] border-black">
+                              <Check className="w-12 h-12 text-black" />
+                              <p className="text-black text-sm font-bold mt-2 tracking-widest uppercase bg-white px-2 border-2 border-black rotate-[-2deg]">COPIED!</p>
+                            </div>
+                          )}
+
+                          <div className="aspect-video bg-black relative border-b-[3px] border-black">
+                              <img src={item.thumbnail} alt={item.title} className="w-full h-full object-cover" />
+                              <div className={clsx("absolute top-2 right-2 text-black text-[10px] font-bold px-2 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]", item.type === 'channel' ? "bg-[#f9a8d4] rotate-3" : "bg-white rotate-[-2deg]")}>
+                                {item.type === 'channel' ? 'USER' : 'VID'}
+                              </div>
+                          </div>
+                          <div className="p-3 bg-zinc-50">
+                            <h3 className="font-bold text-sm text-black line-clamp-2 mb-1 leading-tight" dangerouslySetInnerHTML={{ __html: item.title }}></h3>
+                            <p className="text-xs text-zinc-500 font-bold uppercase tracking-wide">{item.channelTitle}</p>
+                          </div>
+                        </div>
+                    ))}
+                    </div>
+                  </div>
               </div>
            </div>
         </div>
@@ -591,68 +750,70 @@ const App: React.FC = () => {
       {/* Saved List Modal (The Vault) */}
       {showSavedList && (
         <div className="fixed inset-0 z-[115] flex items-center justify-center bg-black/50 p-4 font-sans">
-           <div className="bg-white border-[3px] border-black w-full max-w-3xl max-h-[85vh] overflow-y-auto hard-shadow flex flex-col rotate-1">
-              <Tape className="-top-4 left-10 rotate-[-2deg]" />
-              <div className="bg-[#67e8f9] sticky top-0 p-4 border-b-[3px] border-black flex justify-between items-center z-10">
-                 <div className="flex items-center gap-3">
-                   <div className="p-2 bg-white border-2 border-black rounded-full shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"><FolderOpen className="w-5 h-5 text-black" /></div>
-                   <h2 className="text-xl font-bold text-black uppercase tracking-tight">The Vault</h2>
-                 </div>
-                 <div className="flex gap-3">
-                     <button onClick={() => importInputRef.current?.click()} className="text-xs font-bold text-black flex items-center gap-2 px-3 py-1.5 bg-white border-2 border-black hover:bg-gray-100 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-y-[2px]">
-                        <CloudUpload className="w-4 h-4" /> IMPORT
-                     </button>
-                     <button onClick={() => setShowSavedList(false)} className="p-2 bg-[#ef4444] hover:bg-red-600 border-2 border-black text-white font-bold transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-y-[2px]">
-                       <X className="w-5 h-5" />
-                     </button>
-                 </div>
-              </div>
-              
-              <div className="p-6 bg-dots grid grid-cols-1 md:grid-cols-2 gap-6">
-                 {savedItems.length === 0 ? (
-                    <div className="col-span-full text-center py-20 text-black font-bold text-2xl uppercase opacity-40 rotate-[-2deg]">Vault is Empty</div>
-                 ) : (
-                    savedItems.map((item, idx) => (
-                      <div key={item.id} className={clsx("bg-white border-[3px] border-black p-4 hard-shadow-sm hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all flex flex-col gap-3 group relative", idx % 2 === 0 ? "rotate-1" : "rotate-[-1deg]")}>
-                         <div className="flex justify-between items-start border-b-2 border-black pb-2 mb-1 border-dashed">
-                            <span className={clsx("text-[10px] font-bold uppercase tracking-wider px-2 py-1 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]", item.type === 'THUMB_RATER' ? "bg-[#f9a8d4]" : "bg-[#86efac]")}>
-                              {item.type === 'THUMB_RATER' ? 'RATER' : 'BOT'}
-                            </span>
-                            <button onClick={() => deleteSavedItem(item.id)} className="text-black hover:text-[#ef4444] transition-colors"><Trash2 className="w-5 h-5" /></button>
-                         </div>
-                         
-                         {item.type === 'THUMB_RATER' ? (
-                           <>
-                             <div className="aspect-video bg-black border-2 border-black overflow-hidden rotate-1">
-                               <img src={`data:image/jpeg;base64,${item.thumbnailBase64}`} className="w-full h-full object-cover" />
-                             </div>
-                             <div className="flex justify-between items-center mt-1">
-                                <h3 className="font-bold text-sm text-black truncate pr-4">{item.videoTitle || "Untitled"}</h3>
-                                <div className="bg-black px-2 py-1 text-white text-xs font-bold rotate-3 border-2 border-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">{item.thumbnailResult?.scores.overall}/10</div>
-                             </div>
-                           </>
-                         ) : (
-                           <div className="py-2">
-                             <div className="flex items-center gap-3">
-                               {item.channelDetails?.thumbnailUrl && <img src={item.channelDetails.thumbnailUrl} className="w-12 h-12 rounded-full border-[3px] border-black bg-white" />}
-                               <h3 className="font-bold text-sm text-black uppercase leading-tight">{item.channelDetails?.title}</h3>
-                             </div>
-                             <div className="mt-4 flex items-center gap-2">
-                               <span className={clsx("text-xs font-bold px-2 py-1 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]", item.botResult?.verdict === 'NPC_FARM' ? 'bg-[#ef4444] text-white' : 'bg-[#86efac] text-black')}>
-                                 {item.botResult?.verdict}
-                               </span>
-                               <span className="text-xs text-black font-bold">({item.botResult?.botScore}%)</span>
-                             </div>
-                           </div>
-                         )}
+           <div className="relative w-full max-w-3xl rotate-1 max-h-[85vh]">
+             <div className="bg-white border-[3px] border-black w-full h-full flex flex-col hard-shadow overflow-hidden">
+                <Tape className="-top-4 left-10 rotate-[-2deg]" />
+                <div className="bg-[#67e8f9] p-4 border-b-[3px] border-black flex justify-between items-center shrink-0 z-10">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white border-2 border-black rounded-full shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"><FolderOpen className="w-5 h-5 text-black" /></div>
+                    <h2 className="text-xl font-bold text-black uppercase tracking-tight">The Vault</h2>
+                  </div>
+                  <div className="flex gap-3">
+                      <button onClick={() => importInputRef.current?.click()} className="text-xs font-bold text-black flex items-center gap-2 px-3 py-1.5 bg-white border-2 border-black hover:bg-gray-100 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-y-[2px]">
+                          <CloudUpload className="w-4 h-4" /> IMPORT
+                      </button>
+                      <button onClick={() => setShowSavedList(false)} className="p-2 bg-[#ef4444] hover:bg-red-600 border-2 border-black text-white font-bold transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-y-[2px]">
+                        <X className="w-5 h-5" />
+                      </button>
+                  </div>
+                </div>
+                
+                <div className="p-6 bg-dots grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto">
+                  {savedItems?.length === 0 ? (
+                      <div className="col-span-full text-center py-20 text-black font-bold text-2xl uppercase opacity-40 rotate-[-2deg]">Vault is Empty</div>
+                  ) : (
+                      savedItems?.map((item, idx) => (
+                        <div key={item.id} className={clsx("bg-white border-[3px] border-black p-4 hard-shadow-sm hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all flex flex-col gap-3 group relative", idx % 2 === 0 ? "rotate-1" : "rotate-[-1deg]")}>
+                          <div className="flex justify-between items-start border-b-2 border-black pb-2 mb-1 border-dashed">
+                              <span className={clsx("text-[10px] font-bold uppercase tracking-wider px-2 py-1 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]", item.type === 'THUMB_RATER' ? "bg-[#f9a8d4]" : "bg-[#86efac]")}>
+                                {item.type === 'THUMB_RATER' ? 'RATER' : 'BOT'}
+                              </span>
+                              <button onClick={() => deleteSavedItem(item.id)} className="text-black hover:text-[#ef4444] transition-colors"><Trash2 className="w-5 h-5" /></button>
+                          </div>
+                          
+                          {item.type === 'THUMB_RATER' ? (
+                            <>
+                              <div className="aspect-video bg-black border-2 border-black overflow-hidden rotate-1">
+                                <img src={`data:image/jpeg;base64,${item.thumbnailBase64}`} className="w-full h-full object-cover" />
+                              </div>
+                              <div className="flex justify-between items-center mt-1">
+                                  <h3 className="font-bold text-sm text-black truncate pr-4">{item.videoTitle || "Untitled"}</h3>
+                                  <div className="bg-black px-2 py-1 text-white text-xs font-bold rotate-3 border-2 border-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">{item.thumbnailResult?.scores.overall}/10</div>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="py-2">
+                              <div className="flex items-center gap-3">
+                                {item.channelDetails?.thumbnailUrl && <img src={item.channelDetails.thumbnailUrl} className="w-12 h-12 rounded-full border-[3px] border-black bg-white" />}
+                                <h3 className="font-bold text-sm text-black uppercase leading-tight">{item.channelDetails?.title}</h3>
+                              </div>
+                              <div className="mt-4 flex items-center gap-2">
+                                <span className={clsx("text-xs font-bold px-2 py-1 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]", item.botResult?.verdict === 'NPC_FARM' ? 'bg-[#ef4444] text-white' : 'bg-[#86efac] text-black')}>
+                                  {item.botResult?.verdict}
+                                </span>
+                                <span className="text-xs text-black font-bold">({item.botResult?.botScore}%)</span>
+                              </div>
+                            </div>
+                          )}
 
-                         <button onClick={() => loadSavedItem(item)} className="mt-auto w-full bg-black text-white hover:bg-zinc-800 font-bold uppercase py-3 text-xs transition-colors border-2 border-transparent shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
-                           LOAD DATA
-                         </button>
-                      </div>
-                    ))
-                 )}
-              </div>
+                          <button onClick={() => loadSavedItem(item)} className="mt-auto w-full bg-black text-white hover:bg-zinc-800 font-bold uppercase py-3 text-xs transition-colors border-2 border-transparent shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
+                            LOAD DATA
+                          </button>
+                        </div>
+                      ))
+                  )}
+                </div>
+             </div>
            </div>
         </div>
       )}
@@ -660,31 +821,33 @@ const App: React.FC = () => {
       {/* Changelog Modal */}
       {showChangelog && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4 font-sans">
-           <div className="bg-white border-[3px] border-black w-full max-w-2xl max-h-[80vh] overflow-y-auto hard-shadow flex flex-col rotate-1">
-              <Tape className="-top-4 right-1/2 translate-x-1/2 rotate-2" />
-              <div className="bg-[#f9a8d4] sticky top-0 p-4 border-b-[3px] border-black flex justify-between items-center">
-                 <h2 className="text-2xl font-bold text-black flex items-center gap-3 uppercase tracking-tighter">
-                   <History className="w-6 h-6" /> Patch Notes
-                 </h2>
-                 <button onClick={() => setShowChangelog(false)} className="p-2 bg-black text-white hover:bg-zinc-800 font-bold transition-colors border-2 border-transparent">
-                   <X className="w-5 h-5" />
-                 </button>
-              </div>
-              <div className="p-8 space-y-6 bg-dots">
-                 {CHANGELOG_DATA.map((log, i) => (
-                    <div key={i} className="relative pl-6 border-l-[6px] border-black">
-                       <div className="absolute -left-[13px] top-1.5 w-5 h-5 bg-[#fde047] rounded-full border-[3px] border-black"></div>
-                       <div className="flex items-baseline gap-3 mb-1">
-                         <h3 className="text-xl font-bold text-black uppercase">{log.version}</h3>
-                         <span className="text-xs text-black font-bold bg-white px-1 border border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">{log.date}</span>
-                       </div>
-                       <p className="text-sm text-black font-bold mb-3 italic bg-white inline-block px-1">"{log.title}"</p>
-                       <ul className="list-disc pl-4 space-y-1 text-sm text-black font-bold marker:text-black">
-                          {log.changes.map((change, j) => (<li key={j}>{change}</li>))}
-                       </ul>
-                    </div>
-                 ))}
-              </div>
+           <div className="relative w-full max-w-2xl rotate-1 max-h-[80vh]">
+             <div className="bg-white border-[3px] border-black w-full h-full flex flex-col hard-shadow">
+                <Tape className="-top-4 right-1/2 translate-x-1/2 rotate-2" />
+                <div className="bg-[#f9a8d4] p-4 border-b-[3px] border-black flex justify-between items-center shrink-0">
+                  <h2 className="text-2xl font-bold text-black flex items-center gap-3 uppercase tracking-tighter">
+                    <History className="w-6 h-6" /> Patch Notes
+                  </h2>
+                  <button onClick={() => setShowChangelog(false)} className="p-2 bg-black text-white hover:bg-zinc-800 font-bold transition-colors border-2 border-transparent">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="p-8 space-y-6 bg-dots overflow-y-auto">
+                  {CHANGELOG_DATA.map((log, i) => (
+                      <div key={i} className="relative pl-6 border-l-[6px] border-black">
+                        <div className="absolute -left-[13px] top-1.5 w-5 h-5 bg-[#fde047] rounded-full border-[3px] border-black"></div>
+                        <div className="flex items-baseline gap-3 mb-1">
+                          <h3 className="text-xl font-bold text-black uppercase">{log.version}</h3>
+                          <span className="text-xs text-black font-bold bg-white px-1 border border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">{log.date}</span>
+                        </div>
+                        <p className="text-sm text-black font-bold mb-3 italic bg-white inline-block px-1">"{log.title}"</p>
+                        <ul className="list-disc pl-4 space-y-1 text-sm text-black font-bold marker:text-black">
+                            {log.changes.map((change, j) => (<li key={j}>{change}</li>))}
+                        </ul>
+                      </div>
+                  ))}
+                </div>
+             </div>
            </div>
         </div>
       )}
@@ -695,7 +858,7 @@ const App: React.FC = () => {
           <div className="bg-[#fde047] border-[3px] border-black p-8 max-w-md hard-shadow relative rotate-2">
              <Tape className="-top-5 left-10 rotate-[-4deg]" />
              <div className="flex justify-between items-start mb-4">
-                <AlertTriangle className="w-12 h-12 text-black stroke-[2.5]" />
+                <TriangleAlert className="w-12 h-12 text-black stroke-[2.5]" />
              </div>
              <h2 className="text-3xl font-bold mb-2 text-black uppercase tracking-tighter">Local File??</h2>
              <p className="text-black mb-6 leading-relaxed font-bold border-l-4 border-black pl-4 text-lg">
@@ -730,6 +893,9 @@ const App: React.FC = () => {
             <button onClick={() => setShowSavedList(true)} className="flex items-center gap-2 text-xs font-bold text-black bg-white hover:bg-zinc-100 px-4 py-2 border-2 border-black hard-shadow-sm active:translate-y-0.5 active:shadow-none transition-all uppercase">
                 <FolderOpen className="w-4 h-4" /> VAULT
             </button>
+            <button onClick={() => setShowSettingsModal(true)} className="p-2 bg-black text-white hover:bg-zinc-800 border-2 border-white hard-shadow-sm active:translate-y-0.5 active:shadow-none transition-all">
+                <Settings className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </header>
@@ -738,12 +904,12 @@ const App: React.FC = () => {
         
         {/* TAB SWITCHER */}
         <div className="flex justify-center mb-16">
-            <div className="bg-white p-2 border-[3px] border-black hard-shadow rotate-1 inline-flex gap-3 relative">
+            <div className="bg-white p-2 border-[3px] border-black hard-shadow rotate-1 inline-flex gap-3 relative flex-wrap justify-center">
                 <Tape className="-top-4 right-1/2 translate-x-1/2 rotate-[-1deg] w-32" />
                 <button 
                     onClick={() => { setActiveTab('RATER'); resetAnalysis(); }}
                     className={clsx(
-                        "px-8 py-3 text-lg font-bold uppercase transition-all border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5",
+                        "px-6 py-3 text-lg font-bold uppercase transition-all border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5",
                         activeTab === 'RATER' ? "bg-[#f9a8d4] text-black border-black" : "bg-zinc-100 text-zinc-400 border-transparent hover:text-black hover:border-black"
                     )}
                 >
@@ -752,11 +918,20 @@ const App: React.FC = () => {
                 <button 
                     onClick={() => { setActiveTab('BOT_HUNTER'); resetAnalysis(); }}
                     className={clsx(
-                        "px-8 py-3 text-lg font-bold uppercase transition-all border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5",
+                        "px-6 py-3 text-lg font-bold uppercase transition-all border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5",
                         activeTab === 'BOT_HUNTER' ? "bg-[#67e8f9] text-black border-black" : "bg-zinc-100 text-zinc-400 border-transparent hover:text-black hover:border-black"
                     )}
                 >
                     Bot Hunter
+                </button>
+                <button 
+                    onClick={() => { setActiveTab('VIDEO_CHAT'); resetAnalysis(); }}
+                    className={clsx(
+                        "px-6 py-3 text-lg font-bold uppercase transition-all border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5",
+                        activeTab === 'VIDEO_CHAT' ? "bg-[#a78bfa] text-black border-black" : "bg-zinc-100 text-zinc-400 border-transparent hover:text-black hover:border-black"
+                    )}
+                >
+                    Ask Video
                 </button>
             </div>
         </div>
@@ -764,36 +939,45 @@ const App: React.FC = () => {
         {/* HERO TEXT */}
         <div className="text-center mb-12 relative">
             <h1 className="text-6xl md:text-8xl font-bold text-black uppercase tracking-tighter leading-none relative z-10 drop-shadow-xl">
-                IS YOUR THUMB <br/>
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#ef4444] to-[#ec4899] drop-shadow-none">TRASH?</span>
+                {activeTab === 'RATER' && (
+                   <>
+                     IS YOUR THUMB <br/>
+                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#ef4444] to-[#ec4899] drop-shadow-none">TRASH?</span>
+                   </>
+                )}
+                {activeTab === 'BOT_HUNTER' && (
+                   <>
+                     ARE THEY AN <br/>
+                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#67e8f9] to-[#3b82f6] drop-shadow-none">NPC?</span>
+                   </>
+                )}
+                {activeTab === 'VIDEO_CHAT' && (
+                   <>
+                     DOES IT <br/>
+                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#a78bfa] to-[#8b5cf6] drop-shadow-none">SUCK?</span>
+                   </>
+                )}
             </h1>
             <p className="mt-4 text-xl font-bold text-black bg-[#fde047] inline-block px-4 py-1 border-[3px] border-black rotate-[-2deg] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                {activeTab === 'RATER' ? "Find out if you are cooked." : "Find out if they are NPCs."}
+                {activeTab === 'RATER' ? "Find out if you are cooked." : activeTab === 'BOT_HUNTER' ? "Find out if they are fake." : "Chat about any video."}
             </p>
-            
-            {/* Decor elements */}
-            <div className="absolute top-1/2 left-1/4 -translate-y-1/2 -translate-x-12 hidden md:block">
-                <div className="text-9xl font-bold text-black/5 rotate-[-12deg] select-none">?</div>
-            </div>
-            <div className="absolute top-1/2 right-1/4 -translate-y-1/2 translate-x-12 hidden md:block">
-                <div className="text-9xl font-bold text-black/5 rotate-[12deg] select-none">!</div>
-            </div>
         </div>
 
         {/* INPUT SECTION */}
         <div className="max-w-3xl mx-auto mb-16 relative">
           <div className="absolute -top-6 -left-6 bg-black text-white px-3 py-1 font-bold text-xs rotate-[-5deg] border-2 border-white shadow-md z-10">
-              {activeTab === 'RATER' ? "PASTE IT" : "EXPOSE THEM"}
+              {activeTab === 'RATER' ? "PASTE IT" : activeTab === 'BOT_HUNTER' ? "EXPOSE THEM" : "WATCH IT"}
           </div>
           <div className="relative group hover:scale-[1.01] transition-transform duration-200">
-            <div className="relative flex bg-[#67e8f9] p-3 border-[3px] border-black hard-shadow">
+            <div className={clsx("relative flex p-3 border-[3px] border-black hard-shadow", 
+                 activeTab === 'RATER' ? "bg-[#67e8f9]" : activeTab === 'BOT_HUNTER' ? "bg-[#86efac]" : "bg-[#a78bfa]")}>
                <div className="flex items-center justify-center w-14 text-black border-r-[3px] border-black mr-3 bg-white/30">
-                  {activeTab === 'RATER' ? <Youtube className="w-8 h-8" /> : <Bot className="w-8 h-8" />}
+                  {activeTab === 'RATER' ? <Youtube className="w-8 h-8" /> : activeTab === 'BOT_HUNTER' ? <Bot className="w-8 h-8" /> : <MonitorPlay className="w-8 h-8" />}
                </div>
                <input 
                  type="text" 
-                 placeholder={activeTab === 'RATER' ? "PASTE YOUTUBE LINK HERE..." : "PASTE CHANNEL LINK HERE..."}
-                 className="w-full bg-transparent outline-none text-black placeholder-black/50 px-2 font-bold text-xl uppercase caret-black"
+                 placeholder={activeTab === 'RATER' ? "PASTE YOUTUBE LINK..." : activeTab === 'BOT_HUNTER' ? "PASTE CHANNEL LINK..." : "PASTE VIDEO LINK..."}
+                 className="w-full bg-transparent outline-none text-black placeholder-black/50 px-2 font-bold text-xl uppercase caret-black cursor-text"
                  value={url}
                  onChange={handleUrlChange}
                  onKeyDown={(e) => e.key === 'Enter' && handleInputSubmit()}
@@ -802,7 +986,7 @@ const App: React.FC = () => {
                  onClick={handleInputSubmit} 
                  className="bg-[#ec4899] hover:bg-pink-400 text-black px-8 font-bold text-xl border-[3px] border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-y-1 transition-all uppercase"
                >
-                 JUDGE ME
+                 {activeTab === 'RATER' ? "JUDGE ME" : activeTab === 'BOT_HUNTER' ? "SCAN" : "CHAT"}
                </button>
             </div>
             {/* Corner decorations */}
@@ -820,7 +1004,7 @@ const App: React.FC = () => {
 
           {errorMsg && (
             <div className="mt-6 bg-[#ef4444] text-white p-4 font-bold border-[3px] border-black hard-shadow-sm flex items-center gap-3 animate-in fade-in slide-in-from-top-4 rotate-1">
-              <AlertCircle className="w-6 h-6 stroke-[3px]" />
+              <CircleAlert className="w-6 h-6 stroke-[3px]" />
               {errorMsg}
             </div>
           )}
@@ -865,7 +1049,7 @@ const App: React.FC = () => {
                       <div className="space-y-2 text-xs font-bold uppercase">
                          <div className="flex justify-between"><span>TITLE:</span> <span>{videoTitle ? "FOUND" : "MISSING"}</span></div>
                          <div className="flex justify-between"><span>DESC:</span> <span>{videoDesc ? "FOUND" : "MISSING"}</span></div>
-                         <div className="flex justify-between"><span>TAGS:</span> <span>{videoKeywords.length} FOUND</span></div>
+                         <div className="flex justify-between"><span>TAGS:</span> <span>{videoKeywords?.length || 0} FOUND</span></div>
                       </div>
                       <div className="mt-3 text-center text-[10px] font-bold border-t-2 border-black border-dashed pt-2">
                          THANK YOU FOR SHOPPING
@@ -915,7 +1099,7 @@ const App: React.FC = () => {
                           <p><span className="bg-black text-white px-1">TITLE</span> {videoTitle || "N/A"}</p>
                           <p className="line-clamp-3 opacity-70"><span className="bg-black text-white px-1">DESC</span> {videoDesc || "N/A"}</p>
                           <div className="flex flex-wrap gap-1 mt-2">
-                            {videoKeywords.slice(0, 5).map(k => (
+                            {videoKeywords?.slice(0, 5).map(k => (
                                <span key={k} className="px-1 border border-black bg-white text-[10px] uppercase">{k}</span>
                             ))}
                           </div>
@@ -975,7 +1159,7 @@ const App: React.FC = () => {
                  <div className="bg-white border-[3px] border-black p-6 hard-shadow relative">
                     <div className="absolute -top-4 -left-2 bg-[#67e8f9] text-black px-4 py-1 font-bold rotate-[1deg] border-[3px] border-black shadow-sm text-lg uppercase">Fix It</div>
                     <ul className="mt-4 space-y-3">
-                       {result.suggestions.map((s, i) => (
+                       {result.suggestions?.map((s, i) => (
                           <li key={i} className="flex items-start gap-3 text-sm font-bold">
                              <div className="min-w-[24px] h-6 bg-black text-white flex items-center justify-center text-xs mt-0.5 border-2 border-black shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]">{i+1}</div>
                              <span>{s}</span>
@@ -992,19 +1176,9 @@ const App: React.FC = () => {
                        <MessageSquare className="w-6 h-6 text-black" />
                        <h3 className="font-bold text-xl uppercase tracking-tight">The Roast Room</h3>
                     </div>
-                    <div className="flex gap-1">
-                       <div className="w-3 h-3 rounded-full bg-black border border-white"></div>
-                       <div className="w-3 h-3 rounded-full bg-white border border-black"></div>
-                       <div className="w-3 h-3 rounded-full bg-black border border-white"></div>
-                    </div>
                  </div>
                  
                  <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-dots">
-                    {chatHistory.length === 0 && (
-                       <div className="text-center opacity-40 mt-10">
-                          <p className="font-bold uppercase text-lg">Say something...</p>
-                       </div>
-                    )}
                     {chatHistory.map((msg, i) => (
                        <div key={i} className={clsx("flex flex-col max-w-[80%]", msg.role === 'user' ? "ml-auto items-end" : "mr-auto items-start")}>
                           <div className={clsx(
@@ -1029,7 +1203,7 @@ const App: React.FC = () => {
                  <div className="p-4 bg-zinc-100 border-t-[3px] border-black flex gap-2">
                     <input 
                       type="text" 
-                      className="flex-1 bg-white border-[3px] border-black px-4 font-bold outline-none placeholder-zinc-400 focus:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-shadow"
+                      className="flex-1 bg-white border-[3px] border-black px-4 font-bold outline-none placeholder-zinc-400 focus:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-shadow caret-black cursor-text"
                       placeholder="Comment with the AI..."
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
@@ -1081,9 +1255,9 @@ const App: React.FC = () => {
                      <FileText className="w-5 h-5" /> Evidence
                    </h3>
                    <ul className="space-y-3 flex-1">
-                      {botResult.evidence.map((e, i) => (
+                      {botResult.evidence?.map((e, i) => (
                          <li key={i} className="flex items-start gap-2 text-sm font-bold">
-                            <AlertCircle className="w-4 h-4 mt-0.5 text-[#ef4444] shrink-0" />
+                            <CircleAlert className="w-4 h-4 mt-0.5 text-[#ef4444] shrink-0" />
                             <span>{e}</span>
                          </li>
                       ))}
@@ -1146,7 +1320,7 @@ const App: React.FC = () => {
                  <div className="p-4 bg-zinc-100 border-t-[3px] border-black flex gap-2">
                     <input 
                       type="text" 
-                      className="flex-1 bg-white border-[3px] border-black px-4 font-bold outline-none placeholder-zinc-400 focus:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-shadow"
+                      className="flex-1 bg-white border-[3px] border-black px-4 font-bold outline-none placeholder-zinc-400 focus:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-shadow caret-black cursor-text"
                       placeholder="Comment with the AI..."
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
@@ -1161,12 +1335,94 @@ const App: React.FC = () => {
           </div>
         )}
 
+        {/* VIDEO CHAT SUCCESS */}
+        {appState === AppState.SUCCESS && activeTab === 'VIDEO_CHAT' && activeVideoId && (
+            <div className="max-w-4xl mx-auto animate-slide-up space-y-8">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Video Player & Info */}
+                    <div className="flex flex-col gap-4">
+                        <div className="bg-black border-[3px] border-black hard-shadow aspect-video relative rotate-1">
+                            <iframe 
+                                src={`https://www.youtube.com/embed/${activeVideoId}`}
+                                className="w-full h-full"
+                                frameBorder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                            />
+                        </div>
+                        <div className="bg-white border-[3px] border-black p-4 hard-shadow rotate-[-1deg] relative">
+                             <Tape className="-top-3 right-10 rotate-[2deg]" />
+                             <h2 className="text-xl font-bold uppercase leading-tight mb-2 line-clamp-2">{currentVideoMetadata?.title}</h2>
+                             <div className="flex flex-wrap gap-2 text-xs font-bold">
+                                 {videoAnalysisResult?.topics.map(t => (
+                                     <span key={t} className="bg-[#a78bfa] text-black px-2 border border-black">{t}</span>
+                                 ))}
+                                 <span className="bg-black text-white px-2 uppercase">{videoAnalysisResult?.tone}</span>
+                             </div>
+                             <p className="mt-4 text-sm font-bold opacity-70 border-l-4 border-[#a78bfa] pl-3 italic">
+                                 "{videoAnalysisResult?.summary}"
+                             </p>
+                        </div>
+                    </div>
+
+                    {/* Chat Area */}
+                    <div className="border-[3px] border-black bg-white hard-shadow relative flex flex-col h-[500px]">
+                        <div className="bg-[#a78bfa] p-4 border-b-[3px] border-black flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                                <MessageSquare className="w-6 h-6 text-black" />
+                                <h3 className="font-bold text-xl uppercase tracking-tight">Couch Chat</h3>
+                            </div>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-dots">
+                             {chatHistory.map((msg, i) => (
+                                <div key={i} className={clsx("flex flex-col max-w-[80%]", msg.role === 'user' ? "ml-auto items-end" : "mr-auto items-start")}>
+                                    <div className={clsx(
+                                        "p-3 border-[3px] border-black font-bold text-sm shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]",
+                                        msg.role === 'user' ? "bg-[#fde047] rounded-tl-xl rounded-bl-xl rounded-tr-xl" : "bg-white rounded-tr-xl rounded-br-xl rounded-tl-xl"
+                                    )}>
+                                        {msg.text}
+                                    </div>
+                                    <span className="text-[10px] font-bold mt-1 opacity-50 uppercase">{msg.role === 'user' ? 'YOU' : 'BUDDY'}</span>
+                                </div>
+                             ))}
+                             {isChatLoading && (
+                                <div className="mr-auto flex items-center gap-1 bg-white p-3 border-[3px] border-black rounded-xl">
+                                    <div className="w-2 h-2 bg-black rounded-full animate-bounce"></div>
+                                    <div className="w-2 h-2 bg-black rounded-full animate-bounce delay-75"></div>
+                                    <div className="w-2 h-2 bg-black rounded-full animate-bounce delay-150"></div>
+                                </div>
+                             )}
+                             <div ref={chatEndRef} />
+                        </div>
+                         <div className="p-4 bg-zinc-100 border-t-[3px] border-black flex gap-2">
+                            <input 
+                            type="text" 
+                            className="flex-1 bg-white border-[3px] border-black px-4 font-bold outline-none placeholder-zinc-400 focus:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-shadow caret-black cursor-text"
+                            placeholder="Ask about the video..."
+                            value={chatInput}
+                            onChange={(e) => setChatInput(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                            />
+                            <button onClick={handleSendMessage} className="bg-black text-white p-3 border-[3px] border-black hover:bg-zinc-800 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)]">
+                            <Send className="w-5 h-5" />
+                            </button>
+                        </div>
+                    </div>
+                 </div>
+                 <div className="flex justify-center">
+                    <button onClick={resetAnalysis} className="bg-white text-black py-2 px-12 font-bold text-sm border-[3px] border-black hover:bg-zinc-100 transition-colors uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-y-1">
+                        WATCH ANOTHER
+                    </button>
+                 </div>
+            </div>
+        )}
+
       </main>
 
       {/* FOOTER */}
       <footer className="absolute bottom-4 w-full text-center font-bold text-xs pointer-events-none">
          <button onClick={() => setShowChangelog(true)} className="pointer-events-auto bg-white border-2 border-black px-3 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-y-[2px] transition-all uppercase">
-           v2.13 Changelog
+           v2.16 Changelog
          </button>
          <p className="mt-2 opacity-50">BUILT WITH HATE & LOVE</p>
       </footer>

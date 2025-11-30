@@ -223,14 +223,16 @@ export const searchYouTubeVideos = async (query: string): Promise<SearchResult[]
       const response = await fetch(`${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=all`);
       if (response.ok) {
         const data = await response.json();
-        return data.slice(0, 16).map((item: any) => ({
-          id: item.videoId || item.authorId,
-          type: item.type === 'channel' ? 'channel' : 'video',
-          title: item.title || item.author,
-          thumbnail: item.videoThumbnails?.find((t: any) => t.quality === 'high')?.url || item.videoThumbnails?.[0]?.url || `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`,
-          channelTitle: item.author,
-          publishedAt: item.published ? new Date(item.published * 1000).toISOString() : undefined
-        }));
+        if (Array.isArray(data)) {
+            return data.slice(0, 16).map((item: any) => ({
+              id: item.videoId || item.authorId,
+              type: item.type === 'channel' ? 'channel' : 'video',
+              title: item.title || item.author,
+              thumbnail: item.videoThumbnails?.find((t: any) => t.quality === 'high')?.url || item.videoThumbnails?.[0]?.url || `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`,
+              channelTitle: item.author,
+              publishedAt: item.published ? new Date(item.published * 1000).toISOString() : undefined
+            }));
+        }
       }
     } catch (e) {
        console.warn(`Search failed on ${instance}`);
@@ -272,14 +274,16 @@ export const fetchChannelLatestVideos = async (channelId: string): Promise<Searc
             const response = await fetch(`${instance}/api/v1/channels/${channelId}/videos`);
             if (response.ok) {
                 const data = await response.json();
-                return data.videos.slice(0, 15).map((item: any) => ({
-                    id: item.videoId,
-                    type: 'video',
-                    title: item.title,
-                    thumbnail: item.videoThumbnails?.find((t: any) => t.quality === 'high')?.url || item.videoThumbnails?.[0]?.url,
-                    channelTitle: item.author,
-                    publishedAt: new Date(item.published * 1000).toISOString()
-                }));
+                if (data.videos && Array.isArray(data.videos)) {
+                    return data.videos.slice(0, 15).map((item: any) => ({
+                        id: item.videoId,
+                        type: 'video',
+                        title: item.title,
+                        thumbnail: item.videoThumbnails?.find((t: any) => t.quality === 'high')?.url || item.videoThumbnails?.[0]?.url,
+                        channelTitle: item.author,
+                        publishedAt: new Date(item.published * 1000).toISOString()
+                    }));
+                }
             }
         } catch (e) { continue; }
     }

@@ -16,34 +16,36 @@ export const AnalysisChart: React.FC<AnalysisChartProps> = ({ scores }) => {
   ];
 
   return (
-    <div className="w-full h-64 sm:h-80 font-bold bg-white border-4 border-black p-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+    <div className="w-full h-full bg-yellow-100 border-thick rounded-xl p-2 font-sans">
       <ResponsiveContainer width="100%" height="100%">
-        <RadarChart cx="50%" cy="50%" outerRadius="65%" data={data}>
-          <PolarGrid stroke="#000" strokeWidth={3} strokeDasharray="5 5" />
+        <RadarChart cx="50%" cy="50%" outerRadius="70%" data={data}>
+          <PolarGrid stroke="#000" strokeWidth={2} />
           <PolarAngleAxis 
             dataKey="subject" 
-            tick={{ fill: '#000', fontSize: 16, fontWeight: '900', fontFamily: 'Comic Sans MS' }} 
+            tick={{ fill: '#000', fontSize: 13, fontWeight: '900', fontFamily: 'Comic Neue, Comic Sans MS' }} 
           />
           <PolarRadiusAxis angle={30} domain={[0, 10]} tick={false} axisLine={false} />
           <Radar
             name="Score"
             dataKey="A"
-            stroke="#000"
+            stroke="#ec4899" /* Pink 500 */
             strokeWidth={4}
-            fill="#ec4899" // Hot pink
-            fillOpacity={0.9}
+            fill="#ec4899"
+            fillOpacity={0.6}
+            isAnimationActive={true}
           />
           <Tooltip 
             contentStyle={{ 
-              backgroundColor: '#fef08a', // Yellow
+              backgroundColor: '#fff', 
               borderColor: '#000', 
-              borderWidth: '4px',
+              borderWidth: '3px',
               color: '#000',
-              fontFamily: 'Comic Sans MS',
+              borderRadius: '0px',
               fontWeight: 'bold',
-              boxShadow: '6px 6px 0px 0px #000'
+              fontFamily: 'Comic Neue, Comic Sans MS',
+              boxShadow: '4px 4px 0px 0px #000'
             }}
-            itemStyle={{ color: '#000' }}
+            itemStyle={{ color: '#ec4899' }}
             cursor={{ stroke: '#000', strokeWidth: 2 }}
           />
         </RadarChart>

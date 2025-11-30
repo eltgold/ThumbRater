@@ -28,97 +28,72 @@ import {
   FolderOpen,
   Trash2,
   HardDrive,
-  Cpu,
+  ShoppingBag,
+  Check,
+  Zap,
+  Hammer,
+  BoxSelect,
   FileText,
-  Tv
+  Terminal
 } from 'lucide-react';
 import clsx from 'clsx';
 
 const CHANGELOG_DATA: ChangelogEntry[] = [
   {
-    version: "v1.8",
-    date: "2025-12-03",
-    title: "TubeForge Rebrand",
+    version: "v2.12",
+    date: "2025-12-07",
+    title: "THE GREAT REVERT",
     changes: [
-      "Project Renamed: TubeForge.",
-      "Save System: Save your scans to the app (Recommended) or download as JSON.",
-      "Background Fixed: Red dots everywhere.",
-      "Importing: Bring your old scans back to life."
+      "WE WENT BACK.",
+      "Sorry for the corporate suit update.",
+      "Dumb design is BACK FOREVER.",
+      "Changelog is fixed (hopefully)."
     ]
   },
   {
-    version: "v1.7",
-    date: "2025-12-02",
-    title: "The Human Checker Update",
+    version: "v2.11",
+    date: "2025-12-07",
+    title: "The Mistake Update",
     changes: [
-      "Added Bot Hunter: Detect if a channel is an NPC farm.",
-      "Added Tabs: Because one screen wasn't enough.",
-      "Captcha Aesthetic: Prove you are not a robot."
+      "Tried to be professional.",
+      "Hated it.",
+      "Reverted immediately."
     ]
   },
   {
-    version: "v1.6",
-    date: "2025-12-01",
-    title: "The Fairness Update",
+    version: "v2.2",
+    date: "2025-12-06",
+    title: "The Silly Update",
     changes: [
-      "Scoring Fixed: Getting a 10 is actually possible now.",
-      "Math Tweaked: We stopped rounding down your dreams.",
-      "General unfairness removed."
+      "Added Hammer Logo.",
+      "Added Chaos Mode.",
     ]
   },
   {
-    version: "v1.5",
-    date: "2025-11-30",
-    title: "The Wallpaper Update",
+    version: "v2.1",
+    date: "2025-12-05",
+    title: "RICETOOL Rebrand",
     changes: [
-      "Added Cat Wallpaper: It bezels the site.",
-      "Sus Filter Relaxed: We warn you, but let you look.",
-      "General chaos improvements."
-    ]
-  },
-  {
-    version: "v1.4",
-    date: "2025-11-29",
-    title: "The Law & Order Update",
-    changes: [
-      "Added Sus Checker: The AI now sends you to horny jail.",
-      "Added Patch Notes: So you know what I broke.",
-      "Fixed metadata fetching for real this time."
-    ]
-  },
-  {
-    version: "v1.3",
-    date: "2025-11-28",
-    title: "Video Store Update",
-    changes: [
-      "Added Video Search: Find videos without leaving the site.",
-      "Added Channel Support: Stalk your favorite creators.",
-      "VHS Aesthetics: Because nostalgia sells."
-    ]
-  },
-  {
-    version: "v1.2",
-    date: "2025-11-27",
-    title: "Yap Update",
-    changes: [
-      "Added 'The Roast Room': Chat with the AI about your failure.",
-      "Dumber UI: More rotations, thicker borders.",
-      "God Mode Removed: Life isn't fair."
-    ]
-  },
-  {
-    version: "v1.0",
-    date: "2025-11-25",
-    title: "Genesis",
-    changes: [
-      "Initial Release.",
-      "It judges thumbnails.",
-      "It hurts feelings."
+      "Project Renamed: RICETOOL.",
     ]
   }
 ];
 
 type ActiveTab = 'RATER' | 'BOT_HUNTER';
+
+// --- CUSTOM LOGO COMPONENT ---
+const SmashLogo = () => (
+    <div className="relative group w-10 h-10 flex items-center justify-center cursor-pointer">
+        <div className="absolute inset-0 bg-red-600 rounded-xl border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] group-hover:translate-y-1 group-hover:shadow-none transition-all duration-100 flex items-center justify-center overflow-hidden">
+             <div className="w-0 h-0 border-t-[5px] border-t-transparent border-l-[10px] border-l-white border-b-[5px] border-b-transparent ml-1"></div>
+             <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent pointer-events-none"></div>
+        </div>
+        <Hammer className="absolute -top-3 -right-3 w-8 h-8 text-black fill-zinc-300 drop-shadow-sm transition-transform duration-100 origin-bottom-left group-hover:rotate-[-45deg] z-10" />
+        <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-black uppercase text-black opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-yellow-300 px-1 border border-black rotate-[-5deg] font-sans">
+           BONK!
+        </div>
+    </div>
+);
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('RATER');
@@ -135,11 +110,12 @@ const App: React.FC = () => {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
-  // Search State
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [showSearchResults, setShowSearchResults] = useState(false);
-  const [searchContext, setSearchContext] = useState<string>('VIDEOS & CHANNELS');
+  // Store / Search State
+  const [showStoreModal, setShowStoreModal] = useState(false);
+  const [storeQuery, setStoreQuery] = useState('');
+  const [isStoreSearching, setIsStoreSearching] = useState(false);
+  const [storeResults, setStoreResults] = useState<SearchResult[]>([]);
+  const [copiedItemId, setCopiedItemId] = useState<string | null>(null);
   
   // Bot Hunter State
   const [botResult, setBotResult] = useState<BotAnalysisResult | null>(null);
@@ -203,7 +179,6 @@ const App: React.FC = () => {
     setErrorMsg(null);
     setChatHistory([]);
     setChatInput('');
-    setShowSearchResults(false);
     setShowSusContent(false);
     setShowSaveModal(false);
   };
@@ -211,11 +186,10 @@ const App: React.FC = () => {
   const fetchImageFromVideoId = async (videoId: string) => {
     setAppState(AppState.LOADING_IMAGE);
     setIsMetadataLoading(true);
-    setShowSearchResults(false);
     
     // Non-blocking metadata fetch
     fetchVideoMetadata(videoId).then(meta => {
-      setVideoTitle(meta.title || "Unknown Title (Hidden by YT)");
+      setVideoTitle(meta.title || "Unknown Title");
       setVideoDesc(meta.description || "No description found.");
       setVideoKeywords(meta.keywords || []);
       setIsMetadataLoading(false);
@@ -246,14 +220,13 @@ const App: React.FC = () => {
       setThumbnailSrc(objectUrl);
       setAppState(AppState.READY_TO_ANALYZE);
     } catch (err) {
-      setErrorMsg("YOUTUBE SAID NO. (Upload it yourself?)");
+      setErrorMsg("Could not fetch thumbnail. The video might be private or invalid.");
       setAppState(AppState.ERROR);
     }
   };
 
   const runBotAnalysis = async (channelId: string) => {
     setAppState(AppState.ANALYZING);
-    setShowSearchResults(false);
     setBotResult(null);
     
     try {
@@ -269,7 +242,7 @@ const App: React.FC = () => {
       setAppState(AppState.SUCCESS);
     } catch (e) {
       console.error(e);
-      setErrorMsg("COULD NOT ANALYZE CHANNEL.");
+      setErrorMsg("Could not analyze channel. Check the link.");
       setAppState(AppState.ERROR);
     }
   };
@@ -284,7 +257,8 @@ const App: React.FC = () => {
         resetAnalysis();
         fetchImageFromVideoId(videoId);
       } else {
-        handleSearch(input);
+         setErrorMsg("Invalid YouTube Video URL.");
+         setAppState(AppState.ERROR);
       }
     } else {
       resetAnalysis();
@@ -297,75 +271,48 @@ const App: React.FC = () => {
         if (meta.channelId) {
           channelId = meta.channelId;
         }
-      } else if (!channelId) {
-         handleSearch(input);
-         return;
       }
 
       if (channelId) {
         runBotAnalysis(channelId);
       } else {
-        setErrorMsg("INVALID LINK. NEED CHANNEL OR VIDEO URL.");
+        setErrorMsg("Invalid Channel or Video Link.");
         setAppState(AppState.ERROR);
       }
     }
   };
 
-  const handleSearch = async (query: string) => {
-    resetAnalysis();
-    setIsSearching(true);
-    setSearchResults([]);
-    setShowSearchResults(true);
-    setSearchContext(activeTab === 'RATER' ? 'VIDEOS & CHANNELS' : 'SELECT A TARGET');
+  const handleStoreSearch = async () => {
+    if(!storeQuery.trim()) return;
+    setIsStoreSearching(true);
+    setStoreResults([]);
     
     try {
-      const results = await searchYouTubeVideos(query);
-      setSearchResults(results);
-      if (results.length === 0) {
-        setErrorMsg("NO RESULTS. TRY AGAIN.");
-        setAppState(AppState.ERROR);
-      }
+      const results = await searchYouTubeVideos(storeQuery);
+      setStoreResults(results);
     } catch (e) {
-      setErrorMsg("SEARCH FAILED.");
-      setAppState(AppState.ERROR);
+      console.error(e);
     } finally {
-      setIsSearching(false);
+      setIsStoreSearching(false);
     }
   };
 
-  const handleSelectSearchResult = async (item: SearchResult) => {
-    if (activeTab === 'BOT_HUNTER') {
-      if (item.type === 'channel') {
-        runBotAnalysis(item.id);
-      } else {
-        setAppState(AppState.LOADING_IMAGE);
-        const meta = await fetchVideoMetadata(item.id);
-        if (meta.channelId) {
-           runBotAnalysis(meta.channelId);
-        } else {
-           setErrorMsg("COULD NOT FIND CHANNEL FOR THIS VIDEO.");
-           setAppState(AppState.ERROR);
-        }
-      }
+  const handleCopyLink = (item: SearchResult) => {
+    let link = "";
+    if (item.type === 'video') {
+      link = `https://www.youtube.com/watch?v=${item.id}`;
     } else {
-      if (item.type === 'channel') {
-          setIsSearching(true);
-          setSearchContext(`VIDEOS BY ${item.title.toUpperCase()}`);
-          setSearchResults([]);
-          const videos = await fetchChannelLatestVideos(item.id);
-          setSearchResults(videos);
-          setIsSearching(false);
-      } else {
-          setUrl(`https://www.youtube.com/watch?v=${item.id}`);
-          resetAnalysis(); 
-          fetchImageFromVideoId(item.id);
-      }
+      link = `https://www.youtube.com/channel/${item.id}`;
     }
+    
+    navigator.clipboard.writeText(link);
+    setCopiedItemId(item.id);
+    setTimeout(() => setCopiedItemId(null), 2000);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (activeTab === 'BOT_HUNTER') {
-        alert("YOU CANNOT UPLOAD FILES FOR BOT CHECK. I NEED A CHANNEL LINK.");
+        alert("Bot analysis requires a channel link.");
         return;
     }
     const file = e.target.files?.[0];
@@ -380,7 +327,7 @@ const App: React.FC = () => {
       setImageBase64(base64);
       setAppState(AppState.READY_TO_ANALYZE);
     } catch (err) {
-      setErrorMsg("BAD FILE.");
+      setErrorMsg("Failed to process file.");
       setAppState(AppState.ERROR);
     }
   };
@@ -398,7 +345,7 @@ const App: React.FC = () => {
       setResult(data);
       setAppState(AppState.SUCCESS);
     } catch (err) {
-      setErrorMsg("THE AI DIED. TRY AGAIN.");
+      setErrorMsg("Analysis failed. Please try again.");
       setAppState(AppState.ERROR);
     }
   };
@@ -424,7 +371,7 @@ const App: React.FC = () => {
       });
       setChatHistory(prev => [...prev, { role: 'model', text: aiResponse }]);
     } catch (error) {
-      setChatHistory(prev => [...prev, { role: 'model', text: "I broke. My bad." }]);
+      setChatHistory(prev => [...prev, { role: 'model', text: "Connection error." }]);
     } finally {
       setIsChatLoading(false);
     }
@@ -464,7 +411,7 @@ const App: React.FC = () => {
     setSavedItems(newItems);
     localStorage.setItem('thumb_rate_saved', JSON.stringify(newItems));
     setShowSaveModal(false);
-    alert("SAVED TO APP LOGS! (Check the folder icon)");
+    alert("Saved to Vault.");
   };
 
   const handleDownloadJSON = () => {
@@ -475,7 +422,7 @@ const App: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `thumbrate_${item.type.toLowerCase()}_${Date.now()}.json`;
+    a.download = `ricetool_${item.type.toLowerCase()}_${Date.now()}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -493,7 +440,7 @@ const App: React.FC = () => {
         const item = JSON.parse(event.target?.result as string) as SavedItem;
         loadSavedItem(item);
       } catch (err) {
-        alert("INVALID JSON FILE.");
+        alert("Invalid JSON file format.");
       }
     };
     reader.readAsText(file);
@@ -519,7 +466,7 @@ const App: React.FC = () => {
       setBotResult(item.botResult);
       setAppState(AppState.SUCCESS);
     } else {
-      alert("CORRUPTED SAVE DATA.");
+      alert("Corrupted save data.");
     }
   };
 
@@ -530,37 +477,100 @@ const App: React.FC = () => {
   };
 
   return (
-    <div 
-      className={clsx("min-h-screen text-black pb-20 font-comic overflow-x-hidden transition-colors duration-500 bg-cover bg-center bg-fixed")}
-      style={{
-        backgroundColor: '#ffffff',
-        backgroundImage: 'radial-gradient(#ef4444 2px, transparent 2px)',
-        backgroundSize: '24px 24px'
-      }}
-    >
-      {/* Background Overlays for Effects */}
-      <div className={clsx("fixed inset-0 z-0 pointer-events-none transition-opacity duration-1000", 
-          isCelebrationMode ? "bg-[conic-gradient(at_top_right,_var(--tw-gradient-stops))] from-yellow-200 via-pink-200 to-cyan-200 opacity-90" : 
-          (isSusDetected ? "bg-red-900/60" : "bg-transparent")
-      )}></div>
+    <div className="min-h-screen bg-dots text-black font-sans pb-20 relative overflow-hidden">
       
       {isCelebrationMode && (
-        <div className="fixed inset-0 pointer-events-none z-0 opacity-20 bg-[url('https://media.giphy.com/media/26tOZ42Mg6pbTUPDa/giphy.gif')] bg-repeat"></div>
+        <div className="fixed inset-0 pointer-events-none z-10 opacity-30 bg-[url('https://media.giphy.com/media/26tOZ42Mg6pbTUPDa/giphy.gif')] bg-repeat mix-blend-screen"></div>
       )}
+      
+      {/* --- MODALS (BRUTALIST STYLE) --- */}
       
       {/* Save Modal */}
       {showSaveModal && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-           <div className="bg-white border-8 border-black p-8 max-w-md w-full shadow-[16px_16px_0px_0px_#fff] rotate-1">
-              <h2 className="text-3xl font-black uppercase mb-6 text-center">Archive this?</h2>
-              <div className="flex flex-col gap-4">
-                <button onClick={handleSaveToApp} className="flex items-center justify-center gap-3 bg-[#86efac] border-4 border-black p-4 font-black text-xl shadow-[4px_4px_0px_0px_#000] hover:translate-y-1 hover:shadow-none transition-all">
-                   <HardDrive className="w-6 h-6" /> SAVE TO APP (Recommended)
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4 font-sans">
+           <div className="bg-white border-thick p-6 max-w-sm w-full hard-shadow rounded-none">
+              <h2 className="text-xl font-bold mb-6 text-black border-b-2 border-black pb-2">SAVE ANALYSIS?</h2>
+              <div className="flex flex-col gap-3">
+                <button onClick={handleSaveToApp} className="flex items-center justify-center gap-3 bg-yellow-300 hover:bg-yellow-400 text-black p-4 font-bold border-thick hard-shadow-sm transition-transform active:translate-y-1 active:shadow-none">
+                   <HardDrive className="w-5 h-5" /> SAVE TO VAULT
                 </button>
-                <button onClick={handleDownloadJSON} className="flex items-center justify-center gap-3 bg-[#fcd34d] border-4 border-black p-4 font-black text-xl shadow-[4px_4px_0px_0px_#000] hover:translate-y-1 hover:shadow-none transition-all">
-                   <Download className="w-6 h-6" /> DOWNLOAD JSON
+                <button onClick={handleDownloadJSON} className="flex items-center justify-center gap-3 bg-cyan-300 hover:bg-cyan-400 text-black p-4 font-bold border-thick hard-shadow-sm transition-transform active:translate-y-1 active:shadow-none">
+                   <Download className="w-5 h-5" /> EXPORT JSON
                 </button>
-                <button onClick={() => setShowSaveModal(false)} className="mt-4 font-bold underline">CANCEL</button>
+                <button onClick={() => setShowSaveModal(false)} className="mt-2 text-black hover:underline font-bold text-sm">NEVERMIND</button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* Store Modal */}
+      {showStoreModal && (
+        <div className="fixed inset-0 z-[115] flex items-center justify-center bg-black/50 p-4 font-sans">
+           <div className="bg-white border-thick w-full max-w-5xl max-h-[85vh] overflow-y-auto hard-shadow flex flex-col">
+              <div className="bg-yellow-300 sticky top-0 p-4 border-b-2 border-black flex justify-between items-center z-10">
+                 <div className="flex items-center gap-3">
+                   <div className="p-2 bg-white border-2 border-black rounded-full"><ShoppingBag className="w-5 h-5 text-black" /></div>
+                   <h2 className="text-xl font-black text-black uppercase">Video Store</h2>
+                 </div>
+                 <button onClick={() => setShowStoreModal(false)} className="p-2 bg-red-500 hover:bg-red-600 border-2 border-black text-white font-bold transition-colors">
+                   <X className="w-5 h-5" />
+                 </button>
+              </div>
+              
+              <div className="p-6 bg-dots">
+                 <div className="flex gap-2 max-w-2xl mx-auto mb-8">
+                    <div className="flex-1 flex items-center bg-white border-thick px-4 h-12">
+                      <Search className="w-5 h-5 text-black mr-3" />
+                      <input 
+                        type="text" 
+                        placeholder="SEARCH STUFF..."
+                        className="w-full bg-transparent outline-none text-black placeholder-zinc-500 font-bold"
+                        value={storeQuery}
+                        onChange={(e) => setStoreQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleStoreSearch()}
+                      />
+                    </div>
+                    <button 
+                      onClick={handleStoreSearch} 
+                      className="bg-black text-white px-6 font-bold border-thick hover:bg-zinc-800 transition-colors"
+                    >
+                      {isStoreSearching ? <Loader2 className="animate-spin" /> : "GO"}
+                    </button>
+                 </div>
+
+                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                 {storeResults.length === 0 && !isStoreSearching && (
+                    <div className="col-span-full flex flex-col items-center justify-center text-center py-20 opacity-30">
+                       <ShoppingBag className="w-16 h-16 mb-4 stroke-2" />
+                       <p className="text-lg font-black">SEARCH SOMETHING BRO</p>
+                    </div>
+                 )}
+                 {storeResults.map((item) => (
+                    <div 
+                    key={item.id}
+                    onClick={() => handleCopyLink(item)}
+                    className="group cursor-pointer bg-white border-thick hard-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all relative"
+                    >
+                      {copiedItemId === item.id && (
+                        <div className="absolute inset-0 bg-yellow-300 z-20 flex items-center justify-center flex-col animate-in fade-in duration-200 border-thick">
+                           <Check className="w-10 h-10 text-black" />
+                           <p className="text-black text-xs font-black mt-2 tracking-widest uppercase">COPIED!</p>
+                        </div>
+                      )}
+
+                      <div className="aspect-video bg-black relative border-b-2 border-black">
+                          <img src={item.thumbnail} alt={item.title} className="w-full h-full object-cover" />
+                          <div className="absolute top-2 right-2 bg-white text-black text-[10px] font-black px-2 py-0.5 border-2 border-black rotate-3">
+                             {item.type === 'channel' ? 'USER' : 'VID'}
+                          </div>
+                      </div>
+                      <div className="p-3">
+                         <h3 className="font-bold text-sm text-black line-clamp-2 mb-1" dangerouslySetInnerHTML={{ __html: item.title }}></h3>
+                         <p className="text-xs text-zinc-500 font-bold uppercase">{item.channelTitle}</p>
+                      </div>
+                    </div>
+                ))}
+                </div>
               </div>
            </div>
         </div>
@@ -568,59 +578,63 @@ const App: React.FC = () => {
 
       {/* Saved List Modal (The Vault) */}
       {showSavedList && (
-        <div className="fixed inset-0 z-[115] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-           <div className="bg-white border-8 border-black w-full max-w-3xl max-h-[85vh] overflow-y-auto shadow-[16px_16px_0px_0px_#fff] relative">
-              <div className="bg-black text-white p-4 sticky top-0 flex justify-between items-center border-b-8 border-black z-10">
-                 <h2 className="text-3xl font-black uppercase tracking-tighter flex items-center gap-3">
-                   <FolderOpen className="w-8 h-8" /> THE VAULT
-                 </h2>
-                 <div className="flex gap-4">
-                     <button onClick={() => importInputRef.current?.click()} className="bg-white text-black px-3 py-1 font-bold border-2 border-black flex items-center gap-2 text-sm hover:bg-gray-200">
-                        <CloudUpload className="w-4 h-4" /> IMPORT FILE
+        <div className="fixed inset-0 z-[115] flex items-center justify-center bg-black/50 p-4 font-sans">
+           <div className="bg-white border-thick w-full max-w-3xl max-h-[85vh] overflow-y-auto hard-shadow flex flex-col">
+              <div className="bg-cyan-300 sticky top-0 p-4 border-b-2 border-black flex justify-between items-center z-10">
+                 <div className="flex items-center gap-3">
+                   <div className="p-2 bg-white border-2 border-black rounded-full"><FolderOpen className="w-5 h-5 text-black" /></div>
+                   <h2 className="text-xl font-black text-black uppercase">The Vault</h2>
+                 </div>
+                 <div className="flex gap-3">
+                     <button onClick={() => importInputRef.current?.click()} className="text-xs font-bold text-black flex items-center gap-2 px-3 py-1.5 bg-white border-2 border-black hover:bg-gray-100 transition-colors">
+                        <CloudUpload className="w-4 h-4" /> IMPORT
                      </button>
-                     <button onClick={() => setShowSavedList(false)} className="hover:text-red-500 transition-colors">
-                       <X className="w-8 h-8 stroke-[4px]" />
+                     <button onClick={() => setShowSavedList(false)} className="p-2 bg-red-500 hover:bg-red-600 border-2 border-black text-white font-bold transition-colors">
+                       <X className="w-5 h-5" />
                      </button>
                  </div>
               </div>
               
-              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-100">
+              <div className="p-6 bg-dots grid grid-cols-1 md:grid-cols-2 gap-4">
                  {savedItems.length === 0 ? (
-                    <div className="col-span-full text-center py-20 opacity-50 font-black text-2xl">NOTHING SAVED YET.</div>
+                    <div className="col-span-full text-center py-20 text-black font-bold text-xl">VAULT IS EMPTY</div>
                  ) : (
                     savedItems.map((item) => (
-                      <div key={item.id} className="bg-white border-4 border-black p-4 shadow-[4px_4px_0px_0px_#000] flex flex-col gap-2">
+                      <div key={item.id} className="bg-white border-thick p-4 hard-shadow-sm hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all flex flex-col gap-3 group">
                          <div className="flex justify-between items-start">
-                            <span className={clsx("text-xs font-black text-white px-2 py-0.5", item.type === 'THUMB_RATER' ? "bg-purple-500" : "bg-blue-500")}>
-                              {item.type === 'THUMB_RATER' ? 'THUMBNAIL' : 'BOT SCAN'}
+                            <span className={clsx("text-[10px] font-black uppercase tracking-wider px-2 py-1 border-2 border-black", item.type === 'THUMB_RATER' ? "bg-pink-300" : "bg-green-300")}>
+                              {item.type === 'THUMB_RATER' ? 'RATER' : 'BOT'}
                             </span>
-                            <button onClick={() => deleteSavedItem(item.id)} className="text-red-500 hover:bg-red-100 p-1 rounded"><Trash2 className="w-5 h-5" /></button>
+                            <button onClick={() => deleteSavedItem(item.id)} className="text-black hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
                          </div>
                          
                          {item.type === 'THUMB_RATER' ? (
                            <>
-                             <div className="aspect-video bg-black overflow-hidden border-2 border-black">
+                             <div className="aspect-video bg-black border-2 border-black overflow-hidden">
                                <img src={`data:image/jpeg;base64,${item.thumbnailBase64}`} className="w-full h-full object-cover" />
                              </div>
-                             <div className="flex justify-between items-end mt-2">
-                                <h3 className="font-bold line-clamp-1 text-sm">{item.videoTitle || "Untitled"}</h3>
-                                <span className="font-black text-2xl">{item.thumbnailResult?.scores.overall}/10</span>
+                             <div className="flex justify-between items-center">
+                                <h3 className="font-bold text-sm text-black truncate pr-4">{item.videoTitle || "Untitled"}</h3>
+                                <div className="bg-black px-2 py-1 text-white text-xs font-bold rotate-2">{item.thumbnailResult?.scores.overall}/10</div>
                              </div>
                            </>
                          ) : (
-                           <>
-                             <div className="flex items-center gap-3 mt-2">
-                               {item.channelDetails?.thumbnailUrl && <img src={item.channelDetails.thumbnailUrl} className="w-12 h-12 rounded-full border-2 border-black" />}
-                               <h3 className="font-black text-lg">{item.channelDetails?.title}</h3>
+                           <div className="py-2">
+                             <div className="flex items-center gap-3">
+                               {item.channelDetails?.thumbnailUrl && <img src={item.channelDetails.thumbnailUrl} className="w-10 h-10 rounded-full border-2 border-black" />}
+                               <h3 className="font-bold text-sm text-black">{item.channelDetails?.title}</h3>
                              </div>
-                             <div className="mt-2 font-mono text-sm">
-                               VERDICT: <span className={clsx("font-black", item.botResult?.verdict === 'NPC_FARM' ? 'text-red-600' : 'text-green-600')}>{item.botResult?.verdict}</span>
+                             <div className="mt-3 flex items-center gap-2">
+                               <span className={clsx("text-xs font-black px-2 py-0.5 border-2 border-black", item.botResult?.verdict === 'NPC_FARM' ? 'bg-red-500 text-white' : 'bg-green-400 text-black')}>
+                                 {item.botResult?.verdict}
+                               </span>
+                               <span className="text-xs text-black font-bold">({item.botResult?.botScore}%)</span>
                              </div>
-                           </>
+                           </div>
                          )}
 
-                         <button onClick={() => loadSavedItem(item)} className="mt-2 w-full bg-black text-white font-bold py-2 hover:bg-gray-800 flex items-center justify-center gap-2">
-                           LOAD <FolderOpen className="w-4 h-4" />
+                         <button onClick={() => loadSavedItem(item)} className="mt-auto w-full bg-black text-white hover:bg-zinc-800 font-bold py-2 text-xs transition-colors border-2 border-transparent">
+                           LOAD DATA
                          </button>
                       </div>
                     ))
@@ -632,23 +646,26 @@ const App: React.FC = () => {
 
       {/* Changelog Modal */}
       {showChangelog && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-           <div className="bg-white border-8 border-black w-full max-w-2xl max-h-[80vh] overflow-y-auto shadow-[16px_16px_0px_0px_#fff] relative">
-              <div className="bg-black text-white p-4 sticky top-0 flex justify-between items-center border-b-8 border-black">
-                 <h2 className="text-3xl font-black uppercase tracking-tighter flex items-center gap-3">
-                   <History className="w-8 h-8" /> Patch Notes
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4 font-sans">
+           <div className="bg-white border-thick w-full max-w-2xl max-h-[80vh] overflow-y-auto hard-shadow flex flex-col rotate-1">
+              <div className="bg-pink-400 sticky top-0 p-4 border-b-thick flex justify-between items-center">
+                 <h2 className="text-2xl font-black text-black flex items-center gap-3 uppercase">
+                   <History className="w-6 h-6" /> Patch Notes
                  </h2>
-                 <button onClick={() => setShowChangelog(false)} className="hover:text-red-500 transition-colors">
-                   <X className="w-8 h-8 stroke-[4px]" />
+                 <button onClick={() => setShowChangelog(false)} className="p-2 bg-black text-white hover:bg-zinc-800 font-bold transition-colors border-2 border-transparent">
+                   <X className="w-5 h-5" />
                  </button>
               </div>
-              <div className="p-8 space-y-8 bg-[linear-gradient(#e5e7eb_1px,transparent_1px)] [background-size:100%_2rem]">
+              <div className="p-8 space-y-8 bg-dots">
                  {CHANGELOG_DATA.map((log, i) => (
-                    <div key={i} className="relative pl-8 border-l-4 border-black border-dashed">
-                       <div className="absolute -left-3 top-0 w-5 h-5 bg-black rounded-full"></div>
-                       <h3 className="text-2xl font-black">{log.version} - {log.title}</h3>
-                       <p className="text-sm font-bold opacity-50 mb-4 font-mono">{log.date}</p>
-                       <ul className="list-disc pl-5 space-y-2 font-bold text-lg">
+                    <div key={i} className="relative pl-6 border-l-4 border-black">
+                       <div className="absolute -left-[10px] top-1.5 w-4 h-4 bg-yellow-400 rounded-full border-2 border-black"></div>
+                       <div className="flex items-baseline gap-3 mb-1">
+                         <h3 className="text-xl font-black text-black uppercase">{log.version}</h3>
+                         <span className="text-xs text-zinc-500 font-bold bg-white px-1 border border-black">{log.date}</span>
+                       </div>
+                       <p className="text-sm text-black font-bold mb-3 italic">"{log.title}"</p>
+                       <ul className="list-disc pl-4 space-y-1 text-sm text-black font-medium">
                           {log.changes.map((change, j) => (<li key={j}>{change}</li>))}
                        </ul>
                     </div>
@@ -660,17 +677,19 @@ const App: React.FC = () => {
 
       {/* Warning Popup */}
       {showImageWarning && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-[#fef08a] border-8 border-black p-8 max-w-md shadow-[16px_16px_0px_0px_#000] rotate-2 animate-bounce-in">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 font-sans">
+          <div className="bg-yellow-300 border-thick p-8 max-w-md hard-shadow relative">
              <div className="flex justify-between items-start mb-4">
-                <AlertTriangle className="w-16 h-16 text-red-500 stroke-[3px]" />
-                <button onClick={() => setShowImageWarning(false)} className="bg-black text-white p-2 hover:bg-gray-800"><X className="w-6 h-6" /></button>
+                <AlertTriangle className="w-12 h-12 text-black" />
              </div>
-             <h2 className="text-4xl font-black mb-4 leading-none uppercase">Deprecated!</h2>
-             <p className="text-xl font-bold mb-6">
-               For the <span className="bg-red-500 text-white px-1">FULL EXPERIENCE</span>, use a YouTube link or Video so I can judge the metadata too.
+             <h2 className="text-2xl font-black mb-2 text-black uppercase">Local File??</h2>
+             <p className="text-black mb-6 leading-relaxed font-bold border-l-4 border-black pl-4">
+               If you upload a file, I can't read the Title or Keywords. I'm just looking at the pixels. It's dumber, but it works.
              </p>
-             <button onClick={() => setShowImageWarning(false)} className="w-full bg-white border-4 border-black py-3 text-2xl font-black shadow-[4px_4px_0px_0px_#000] hover:translate-y-1 hover:shadow-none transition-all">WHATEVER</button>
+             <div className="flex gap-3">
+                <button onClick={() => setShowImageWarning(false)} className="flex-1 bg-black text-white py-3 font-black hover:bg-zinc-800 transition-colors border-2 border-transparent">WHATEVER</button>
+                <button onClick={() => { setShowImageWarning(false); setThumbnailSrc(null); setAppState(AppState.IDLE); }} className="flex-1 bg-white text-black py-3 font-black border-thick hover:bg-zinc-100 transition-colors">CANCEL</button>
+             </div>
           </div>
         </div>
       )}
@@ -679,353 +698,402 @@ const App: React.FC = () => {
       <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload}/>
       <input type="file" ref={importInputRef} className="hidden" accept=".json" onChange={handleImportJSON} />
 
-      {/* Header */}
-      <header className={clsx("bg-[#67e8f9] border-b-8 border-black p-4 sticky top-0 z-50 shadow-[0px_8px_0px_0px_rgba(0,0,0,1)]", isSusDetected && "bg-gray-800")}>
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3 transform hover:rotate-3 transition-transform cursor-pointer" onClick={resetAnalysis}>
-            <div className={clsx("bg-red-500 border-4 border-black p-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]", isCelebrationMode && "animate-spin")}>
-              <Youtube className="w-10 h-10 text-white fill-white stroke-black stroke-[3px]" />
-            </div>
-            <h1 className="font-black text-3xl md:text-4xl tracking-tighter italic drop-shadow-md">
-              TUBE<span className="text-red-500 bg-yellow-300 px-2 border-4 border-black ml-1">FORGE</span>
+      {/* --- HEADER --- */}
+      <header className="bg-yellow-400 border-b-thick sticky top-0 z-50 font-sans">
+        <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-3 cursor-pointer group" onClick={resetAnalysis}>
+            <SmashLogo />
+            {/* CHANGE APP NAME HERE */}
+            <h1 className="font-black text-2xl tracking-tighter text-black italic bg-white px-2 border-2 border-black rotate-[-2deg] group-hover:rotate-[2deg] transition-transform">
+              RICETOOL
             </h1>
           </div>
-          <button onClick={() => setShowSavedList(true)} className="bg-black text-white px-4 py-2 font-black border-4 border-white shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)] flex items-center gap-2 hover:bg-gray-800 transition-transform active:translate-y-1 active:shadow-none">
-            <FolderOpen className="w-5 h-5" /> <span className="hidden md:inline">VAULT</span>
-          </button>
+          <div className="flex gap-2">
+            <button onClick={() => setShowStoreModal(true)} className="flex items-center gap-2 text-xs font-bold text-black bg-white hover:bg-zinc-100 px-3 py-2 border-2 border-black hard-shadow-sm active:translate-y-0.5 active:shadow-none transition-all">
+                <ShoppingBag className="w-4 h-4" /> STORE
+            </button>
+            <button onClick={() => setShowSavedList(true)} className="flex items-center gap-2 text-xs font-bold text-black bg-white hover:bg-zinc-100 px-3 py-2 border-2 border-black hard-shadow-sm active:translate-y-0.5 active:shadow-none transition-all">
+                <FolderOpen className="w-4 h-4" /> VAULT
+            </button>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-12 relative z-10">
+      <main className="max-w-7xl mx-auto px-4 py-12 relative z-10 font-sans">
         
-        {/* TABS */}
-        <div className="flex justify-center mb-6">
-            <button 
-                onClick={() => { setActiveTab('RATER'); resetAnalysis(); }}
-                className={clsx(
-                    "px-4 md:px-8 py-4 text-xl md:text-2xl font-black border-8 border-black border-r-0 hover:bg-[#a5f3fc] transition-colors shadow-[4px_4px_0px_0px_#000] active:translate-y-1 active:shadow-none",
-                    activeTab === 'RATER' ? "bg-white translate-y-2 shadow-none" : "bg-gray-300"
-                )}
-            >
-                THUMB RATER
-            </button>
-            <button 
-                onClick={() => { setActiveTab('BOT_HUNTER'); resetAnalysis(); }}
-                className={clsx(
-                    "px-4 md:px-8 py-4 text-xl md:text-2xl font-black border-8 border-black hover:bg-[#a5f3fc] transition-colors shadow-[4px_4px_0px_0px_#000] active:translate-y-1 active:shadow-none",
-                    activeTab === 'BOT_HUNTER' ? "bg-white translate-y-2 shadow-none" : "bg-gray-300"
-                )}
-            >
-                BOT HUNTER
-            </button>
-        </div>
-
-        {/* HERO */}
-        <div className={clsx(
-            "text-center mb-16 border-8 border-black p-8 shadow-[16px_16px_0px_0px_rgba(0,0,0,1)] relative overflow-hidden transform transition-colors",
-            activeTab === 'RATER' ? "-rotate-1 bg-white" : "rotate-1 bg-[#d1fae5]"
-          )}>
-          <h1 className="text-5xl md:text-8xl font-black mb-6 leading-none">
-            {activeTab === 'RATER' ? 'THUMBNAIL CHECKER' : 'HUMAN CHECKER'}
-          </h1>
-          <p className="text-2xl font-bold mb-8 max-w-2xl mx-auto bg-black text-yellow-300 p-2 border-2 border-yellow-300 inline-block transform -rotate-1">
-            {activeTab === 'RATER' ? 'IT WILL HURT YOUR FEELINGS.' : 'ARE YOU AN NPC? LET\'S FIND OUT.'}
-          </p>
-
-          <div className="flex flex-col gap-6 max-w-2xl mx-auto relative z-10">
-            <div className="flex flex-col md:flex-row gap-2">
-              <div className="flex-1 flex items-center bg-white border-8 border-black h-16 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:scale-[1.02] transition-transform">
-                <Search className="w-8 h-8 ml-3 mr-2 stroke-[3px]" />
-                <input 
-                  type="text" 
-                  placeholder={activeTab === 'RATER' ? "PASTE URL OR SEARCH..." : "CHANNEL URL OR VIDEO LINK..."}
-                  className="w-full h-full outline-none font-black text-xl placeholder-gray-400 bg-transparent uppercase"
-                  value={url}
-                  onChange={handleUrlChange}
-                  onKeyDown={(e) => e.key === 'Enter' && handleInputSubmit()}
-                />
-              </div>
-              <button 
-                onClick={handleInputSubmit}
-                disabled={!url || appState === AppState.ANALYZING || isSearching}
-                className={clsx(
-                  "text-black font-black text-2xl px-8 py-3 border-8 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-y-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[120px]",
-                  activeTab === 'RATER' ? "bg-[#c4b5fd] hover:bg-[#a78bfa]" : "bg-[#6ee7b7] hover:bg-[#34d399]"
-                )}
-              >
-                {isSearching ? <Loader2 className="w-6 h-6 animate-spin" /> : "GO"}
-              </button>
-            </div>
-
-            {activeTab === 'RATER' && (
+        {/* TAB SWITCHER */}
+        <div className="flex justify-center mb-12">
+            <div className="bg-white p-1.5 border-thick hard-shadow rotate-1 inline-flex gap-2">
                 <button 
-                    onClick={() => fileInputRef.current?.click()}
-                    className="mx-auto flex items-center gap-3 bg-[#86efac] hover:bg-[#4ade80] text-black font-black text-xl px-8 py-4 border-8 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:rotate-1 active:scale-95 transition-all"
+                    onClick={() => { setActiveTab('RATER'); resetAnalysis(); }}
+                    className={clsx(
+                        "px-6 py-2 text-sm font-black uppercase transition-all border-2",
+                        activeTab === 'RATER' ? "bg-pink-400 text-black border-black" : "bg-transparent text-zinc-400 border-transparent hover:text-black"
+                    )}
                 >
-                    <CloudUpload className="w-6 h-6 stroke-[3px]" /> UPLOAD FILE
+                    Thumb Rater
                 </button>
-            )}
-          </div>
+                <button 
+                    onClick={() => { setActiveTab('BOT_HUNTER'); resetAnalysis(); }}
+                    className={clsx(
+                        "px-6 py-2 text-sm font-black uppercase transition-all border-2",
+                        activeTab === 'BOT_HUNTER' ? "bg-cyan-400 text-black border-black" : "bg-transparent text-zinc-400 border-transparent hover:text-black"
+                    )}
+                >
+                    Bot Hunter
+                </button>
+            </div>
         </div>
 
-        {/* Error Box */}
-        {errorMsg && (
-          <div className="max-w-2xl mx-auto mb-8 p-6 bg-red-200 border-8 border-red-600 flex items-center gap-6 shadow-[12px_12px_0px_0px_#dc2626] animate-bounce">
-            <AlertCircle className="w-12 h-12 text-red-600 stroke-[3px]" />
-            <p className="font-black text-red-600 text-3xl uppercase tracking-tighter">{errorMsg}</p>
-          </div>
-        )}
-
-        {/* SEARCH RESULTS */}
-        {showSearchResults && (
-          <div className="mb-12 animate-in fade-in slide-in-from-bottom-10 duration-500">
-            <div className="bg-[#fb923c] border-8 border-black p-2 mb-6 inline-block transform -rotate-2 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-              <h2 className="text-4xl font-black text-white uppercase px-4 drop-shadow-[4px_4px_0px_rgba(0,0,0,1)]">{searchContext}</h2>
+        {/* INPUT SECTION */}
+        <div className="max-w-3xl mx-auto mb-16">
+          <div className="relative group">
+            <div className="relative flex bg-cyan-300 p-2 border-thick hard-shadow">
+               <div className="flex items-center justify-center w-12 text-black border-r-2 border-black mr-2">
+                  {activeTab === 'RATER' ? <Youtube className="w-6 h-6" /> : <Bot className="w-6 h-6" />}
+               </div>
+               <input 
+                 type="text" 
+                 placeholder={activeTab === 'RATER' ? "PASTE YOUTUBE LINK HERE..." : "PASTE CHANNEL LINK HERE..."}
+                 className="w-full bg-transparent outline-none text-black placeholder-black/50 px-2 font-bold uppercase"
+                 value={url}
+                 onChange={handleUrlChange}
+                 onKeyDown={(e) => e.key === 'Enter' && handleInputSubmit()}
+               />
+               <div className="flex gap-2">
+                 {activeTab === 'RATER' && (
+                     <button 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="p-3 text-black bg-white border-2 border-black hover:bg-zinc-100 transition-all"
+                        title="Upload File"
+                     >
+                        <CloudUpload className="w-5 h-5" />
+                     </button>
+                 )}
+                 <button 
+                    onClick={handleInputSubmit}
+                    disabled={!url || appState === AppState.ANALYZING}
+                    className="bg-black text-white px-6 font-black uppercase hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 border-2 border-transparent"
+                 >
+                    {appState === AppState.ANALYZING ? <Loader2 className="w-4 h-4 animate-spin" /> : "JUDGE ME"}
+                 </button>
+               </div>
             </div>
-            {isSearching ? (
-                 <div className="flex justify-center p-10 bg-white border-8 border-black"><Loader2 className="w-16 h-16 animate-spin stroke-[3px]" /></div>
-            ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {searchResults.map((item) => (
-                    <div 
-                    key={item.id}
-                    onClick={() => handleSelectSearchResult(item)}
-                    className={clsx(
-                        "group cursor-pointer bg-white border-8 border-black p-3 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-2 hover:shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] hover:bg-[#fef08a] transition-all",
-                        item.type === 'channel' ? "bg-blue-50" : "bg-white"
-                    )}
-                    >
-                    <div className={clsx(
-                        "aspect-video bg-black overflow-hidden mb-3 border-4 border-black relative",
-                        item.type === 'channel' ? "rounded-full aspect-square w-32 mx-auto border-4" : ""
-                    )}>
-                        <img src={item.thumbnail} alt={item.title} className="w-full h-full object-cover" />
-                    </div>
-                    {item.type === 'channel' && <div className="flex justify-center mb-2"><span className="bg-blue-500 text-white font-black text-xs px-2 py-1 border-2 border-black rotate-3">CHANNEL</span></div>}
-                    <h3 className="font-black text-lg leading-tight line-clamp-2 uppercase" dangerouslySetInnerHTML={{ __html: item.title }}></h3>
-                    </div>
-                ))}
-                </div>
-            )}
+          </div>
+          {activeTab === 'RATER' && <p className="text-center text-xs font-bold text-black mt-4 bg-white inline-block px-2 border-2 border-black rotate-1 mx-auto block w-fit">LINKS OR FILES IDK</p>}
+        </div>
+
+        {/* ERROR STATE */}
+        {errorMsg && (
+          <div className="max-w-2xl mx-auto mb-8 p-4 bg-red-100 border-thick flex items-center gap-4 animate-slide-up text-red-600">
+            <AlertCircle className="w-8 h-8 shrink-0 text-black" />
+            <p className="text-sm font-bold text-black">{errorMsg}</p>
           </div>
         )}
 
-        {/* BOT HUNTER RESULTS */}
+        {/* --- BOT HUNTER RESULTS --- */}
         {activeTab === 'BOT_HUNTER' && (botResult || appState === AppState.ANALYZING) && (
-             <div className="max-w-4xl mx-auto">
+             <div className="max-w-4xl mx-auto animate-slide-up">
                 {appState === AppState.ANALYZING ? (
-                    <div className="bg-white border-8 border-black p-12 text-center animate-pulse shadow-[16px_16px_0px_0px_#000]">
-                         <Cpu className="w-24 h-24 mx-auto mb-6 stroke-[3px] animate-spin-slow" />
-                         <h2 className="text-4xl font-black uppercase">SCANNING MAINFRAME...</h2>
-                         <p className="font-mono mt-4">Calculations remaining: 99.9%</p>
+                    <div className="bg-white border-thick p-12 text-center hard-shadow">
+                         <Loader2 className="w-12 h-12 mx-auto mb-6 text-black animate-spin" />
+                         <h2 className="text-2xl font-black text-black mb-2 uppercase">Interrogating User...</h2>
+                         <p className="text-black font-bold">Checking if they have a soul.</p>
                     </div>
                 ) : botResult && (
-                    <div className="bg-white border-8 border-black p-8 shadow-[16px_16px_0px_0px_#000] relative overflow-hidden">
-                        <button onClick={() => setShowSaveModal(true)} className="absolute top-0 left-0 bg-yellow-300 border-b-4 border-r-4 border-black p-2 hover:bg-yellow-400 z-10 flex gap-2 font-bold"><Save className="w-6 h-6" /> SAVE</button>
-                        
-                        {/* Stamp */}
-                        <div className={clsx(
-                            "absolute top-10 right-10 border-8 p-4 font-black text-5xl uppercase tracking-widest opacity-80 transform rotate-12 mask-stamp",
-                            botResult.verdict === 'HUMAN' ? "border-green-600 text-green-600" : (botResult.verdict === 'CYBORG' ? "border-yellow-600 text-yellow-600" : "border-red-600 text-red-600")
-                        )}>
-                            {botResult.verdict}
-                        </div>
-
-                        <div className="flex items-center gap-6 mb-8 border-b-8 border-black pb-8">
-                             {analyzingChannel?.thumbnailUrl && (
-                                 <img src={analyzingChannel.thumbnailUrl} className="w-24 h-24 rounded-full border-4 border-black shadow-[4px_4px_0px_0px_#000]" />
-                             )}
-                             <div>
-                                 <h2 className="text-4xl font-black uppercase">{analyzingChannel?.title}</h2>
-                                 <p className="font-mono text-sm bg-gray-200 inline-block px-2">{analyzingChannel?.subscriberCount} Subs • {analyzingChannel?.videoCount} Videos</p>
-                             </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="bg-gray-100 border-4 border-black p-6">
-                                <h3 className="font-black text-2xl mb-4 uppercase flex items-center gap-2">
-                                    <Bot className="w-6 h-6" /> Bot Score
-                                </h3>
-                                <div className="h-12 w-full bg-white border-4 border-black relative">
-                                    <div 
-                                        className={clsx("h-full transition-all duration-1000", botResult.botScore > 80 ? "bg-red-500" : (botResult.botScore > 40 ? "bg-yellow-400" : "bg-green-400"))} 
-                                        style={{width: `${botResult.botScore}%`}}
-                                    ></div>
+                    <div className="bg-white border-thick hard-shadow">
+                        <div className="p-8">
+                            <div className="flex justify-between items-start mb-8 border-b-thick pb-8 bg-dots">
+                                <div className="flex items-center gap-6">
+                                    {analyzingChannel?.thumbnailUrl && (
+                                        <img src={analyzingChannel.thumbnailUrl} className="w-20 h-20 rounded-full border-thick bg-white" />
+                                    )}
+                                    <div>
+                                        <h2 className="text-3xl font-black text-black uppercase bg-yellow-300 px-2 inline-block border-2 border-black rotate-1">{analyzingChannel?.title}</h2>
+                                        <div className="flex gap-3 mt-3 text-xs font-bold font-mono text-black">
+                                            <span className="bg-white border-2 border-black px-2 py-1">{analyzingChannel?.subscriberCount} Subs</span>
+                                            <span className="bg-white border-2 border-black px-2 py-1">{analyzingChannel?.videoCount} Vids</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <p className="text-right font-black text-4xl mt-2">{botResult.botScore}%</p>
+                                <button onClick={() => setShowSaveModal(true)} className="bg-black hover:bg-zinc-800 text-white px-4 py-3 font-bold transition-colors flex items-center gap-2 border-2 border-transparent">
+                                    <Save className="w-4 h-4" /> SAVE REPORT
+                                </button>
                             </div>
 
-                            <div className="bg-white border-4 border-black p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)]">
-                                <h3 className="font-black text-xl mb-2 uppercase bg-yellow-300 inline-block px-2">Evidence</h3>
-                                <ul className="list-disc pl-5 space-y-2 font-bold text-sm">
-                                    {(botResult.evidence || []).map((ev, i) => (
-                                        <li key={i}>{ev}</li>
-                                    ))}
-                                </ul>
-                            </div>
-                        </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                <div className="md:col-span-1 bg-zinc-100 border-thick p-6 flex flex-col items-center justify-center text-center">
+                                    <h3 className="text-sm font-black uppercase text-black mb-3 border-b-2 border-black w-full pb-1">Bot Meter</h3>
+                                    
+                                    <div className="relative w-32 h-32 flex items-center justify-center mb-3">
+                                        <svg className="w-full h-full transform -rotate-90">
+                                            <circle cx="64" cy="64" r="60" stroke="#000" strokeWidth="8" fill="white" />
+                                            <circle cx="64" cy="64" r="60" stroke={botResult.verdict === 'NPC_FARM' ? '#ef4444' : (botResult.verdict === 'CYBORG' ? '#fbbf24' : '#10b981')} strokeWidth="8" fill="transparent" strokeDasharray={377} strokeDashoffset={377 - (377 * botResult.botScore) / 100} strokeLinecap="round" />
+                                        </svg>
+                                        <span className="absolute text-3xl font-black text-black">{botResult.botScore}%</span>
+                                    </div>
 
-                        <div className="mt-8 bg-black text-white p-6 border-4 border-black font-mono">
-                            <span className="text-green-400 mr-2">{'>'}</span> {botResult.summary}
+                                    <div className={clsx(
+                                        "text-lg font-black px-4 py-1 border-2 border-black rotate-[-2deg]",
+                                        botResult.verdict === 'HUMAN' ? "bg-green-300 text-black" : (botResult.verdict === 'CYBORG' ? "bg-yellow-300 text-black" : "bg-red-500 text-white")
+                                    )}>
+                                        {botResult.verdict}
+                                    </div>
+                                </div>
+                                
+                                <div className="md:col-span-2">
+                                    <h3 className="text-lg font-black text-black mb-4 flex items-center gap-2 uppercase"><FileText className="w-5 h-5" /> Evidence</h3>
+                                    <ul className="space-y-3">
+                                        {(botResult.evidence || []).map((ev, i) => (
+                                            <li key={i} className="flex items-start gap-3 text-sm font-bold text-black bg-white p-3 border-2 border-black hard-shadow-sm">
+                                                <AlertTriangle className="w-5 h-5 text-black shrink-0" />
+                                                {ev}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </div>
+                            
+                            <div className="mt-8 bg-zinc-100 border-l-[6px] border-black pl-4 py-4 italic">
+                                <p className="text-black text-lg font-bold">"{botResult.summary}"</p>
+                            </div>
+
                         </div>
                     </div>
                 )}
              </div>
         )}
 
-        {/* THUMB RATER CONTENT */}
-        {activeTab === 'RATER' && (thumbnailSrc || result) && !showSearchResults && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-            {/* Left Column: Image */}
-            <div className="flex flex-col gap-6">
-              <div className={clsx("bg-white border-8 border-black p-4 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] rotate-1", isCelebrationMode && "border-yellow-500 shadow-yellow-800", isSusDetected && "border-red-600 bg-red-100")}>
-                <div className="relative aspect-video bg-black border-4 border-black group overflow-hidden">
+        {/* --- THUMB RATER RESULTS DASHBOARD --- */}
+        {activeTab === 'RATER' && (thumbnailSrc || result) && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-slide-up">
+            
+            {/* Left Column (4/12): Image & Metadata */}
+            <div className="lg:col-span-4 space-y-6">
+              
+              {/* Thumbnail Card */}
+              <div className="bg-white border-thick p-2 hard-shadow rotate-1 relative group">
+                <div className={clsx("relative aspect-video bg-black overflow-hidden border-2 border-black", isSusDetected && "border-4 border-red-500")}>
                   <img 
                     src={thumbnailSrc || ''} 
-                    alt="Thumbnail Preview" 
-                    className={clsx("w-full h-full object-contain transition-all duration-300", isSusDetected && !showSusContent && "blur-xl scale-110 opacity-50")}
+                    alt="Thumbnail" 
+                    className={clsx("w-full h-full object-contain transition-all duration-500", isSusDetected && !showSusContent && "blur-xl opacity-50")}
                   />
                   
                   {isSusDetected && !showSusContent && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center z-10 cursor-pointer" onClick={() => setShowSusContent(true)}>
-                          <div className="bg-red-600 text-white font-black text-3xl px-6 py-4 rotate-12 border-4 border-white shadow-[0px_0px_20px_rgba(0,0,0,0.5)] mb-4 hover:scale-110 transition-transform">SENSITIVE CONTENT</div>
-                          <button className="bg-black text-white px-4 py-2 font-black border-2 border-white hover:bg-gray-800 uppercase">Click to reveal</button>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-black/60 backdrop-blur-sm cursor-pointer" onClick={() => setShowSusContent(true)}>
+                          <div className="bg-red-500 text-white border-2 border-white px-4 py-2 font-black mb-2 flex items-center gap-2 uppercase rotate-[-5deg] text-xl">
+                             <Siren className="w-6 h-6" /> SUS CONTENT
+                          </div>
+                          <button className="text-sm text-white font-bold underline">CLICK TO RISK IT</button>
                       </div>
                   )}
 
                   {appState === AppState.ANALYZING && (
-                    <div className="absolute inset-0 bg-white/90 flex items-center justify-center flex-col gap-4 z-20">
-                      <Loader2 className="w-24 h-24 text-black animate-spin stroke-[3px]" />
-                      <p className="text-4xl font-black animate-pulse bg-[#67e8f9] px-4 py-2 border-4 border-black shadow-[4px_4px_0px_0px_black] rotate-2">JUDGING YOU...</p>
+                    <div className="absolute inset-0 bg-white/90 flex items-center justify-center flex-col gap-3 z-20">
+                      <Loader2 className="w-12 h-12 text-black animate-spin" />
+                      <span className="text-xl font-black text-black uppercase">COOKING...</span>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Data Proof Box */}
+              {/* Metadata Card */}
               {(videoTitle || isMetadataLoading) && (
-                <div className="bg-gray-100 border-8 border-black p-4 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] -rotate-1 text-sm font-bold font-mono">
-                  <div className="flex items-center gap-2 mb-2 bg-black text-white p-2 w-fit">
-                    <FileText className="w-4 h-4" /> <span>STOLEN METADATA</span>
+                <div className="bg-white border-thick p-6 relative hard-shadow-sm rotate-[-1deg]">
+                  <div className="flex items-center gap-2 mb-4 text-black text-xs font-black uppercase tracking-wider border-b-2 border-black pb-2">
+                     <BoxSelect className="w-4 h-4" /> Video Metadata
                   </div>
+                  
                   {isMetadataLoading ? (
-                    <div className="flex items-center gap-2 animate-pulse"><Loader2 className="w-4 h-4 animate-spin" /><span>Stealing data from YouTube...</span></div>
+                    <div className="space-y-3">
+                        <div className="h-4 bg-zinc-200 w-3/4 animate-pulse border-2 border-zinc-300"></div>
+                        <div className="h-3 bg-zinc-200 w-1/2 animate-pulse border-2 border-zinc-300"></div>
+                    </div>
                   ) : (
-                    <div className="space-y-2 max-h-40 overflow-y-auto">
-                      <div className="border-b-2 border-black pb-1"><span className="bg-yellow-300 px-1 border border-black mr-2">TITLE</span>{videoTitle}</div>
-                      <div className="border-b-2 border-black pb-1"><span className="bg-green-300 px-1 border border-black mr-2">DESC</span><span className="opacity-70">{videoDesc ? videoDesc.substring(0, 100) + '...' : 'NONE'}</span></div>
-                      <div><span className="bg-pink-300 px-1 border border-black mr-2">KEYS</span>{videoKeywords.length > 0 ? videoKeywords.join(', ') : 'NONE'}</div>
+                    <div className="space-y-4">
+                      <div>
+                          <p className="text-black font-bold leading-snug">{videoTitle}</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 pt-4 border-t-2 border-black">
+                          <div>
+                             <span className="text-[10px] text-zinc-500 font-black uppercase block mb-1">Keywords</span>
+                             <div className="flex flex-wrap gap-1">
+                                {videoKeywords.slice(0, 3).map((k, i) => (
+                                    <span key={i} className="text-[10px] text-black bg-zinc-100 border border-black px-1.5 py-0.5">{k}</span>
+                                ))}
+                                {videoKeywords.length > 3 && <span className="text-[10px] text-zinc-500 pl-1 font-bold">+{videoKeywords.length - 3}</span>}
+                             </div>
+                          </div>
+                          <div>
+                             <span className="text-[10px] text-zinc-500 font-black uppercase block mb-1">Description</span>
+                             <span className={clsx("text-xs flex items-center gap-1 font-bold", videoDesc ? "text-green-600" : "text-red-500")}>
+                                {videoDesc ? <CheckCircle2 className="w-4 h-4" /> : <X className="w-4 h-4" />} {videoDesc ? 'FOUND' : 'MISSING'}
+                             </span>
+                          </div>
+                      </div>
                     </div>
                   )}
                 </div>
               )}
-
+              
               {appState === AppState.READY_TO_ANALYZE && (
                  <button 
                  onClick={handleAnalyze}
-                 className={clsx(
-                   "w-full text-black font-black text-4xl py-6 border-8 border-black shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] hover:translate-y-2 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all active:scale-95",
-                   isCelebrationMode ? "bg-gradient-to-r from-yellow-300 via-orange-300 to-red-300" : "bg-[#fcd34d] hover:bg-[#fbbf24]"
-                 )}
+                 className="w-full bg-pink-500 hover:bg-pink-400 text-white font-black text-xl py-4 border-thick hard-shadow transition-transform active:translate-y-1 active:shadow-none flex items-center justify-center gap-2"
                >
-                 <span className="flex items-center justify-center gap-4"><Sparkles className="w-10 h-10 fill-white stroke-black stroke-[3px]" /> ROAST IT!</span>
+                 <Sparkles className="w-6 h-6" /> START ROAST
                </button>
               )}
             </div>
 
-            {/* Right Column: Results */}
-            <div className="flex flex-col h-full gap-6">
+            {/* Right Column (8/12): Dashboard Results */}
+            <div className="lg:col-span-8 flex flex-col h-full gap-8">
               {!result ? (
                  appState === AppState.ANALYZING ? (
-                    <div className="h-full flex flex-col items-center justify-center p-12 border-8 border-black bg-yellow-300 min-h-[400px] shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] animate-pulse rotate-1">
-                        <Loader2 className="w-32 h-32 text-black animate-spin stroke-[3px] mb-8" />
-                        <h2 className="text-4xl font-black uppercase text-center animate-bounce">COOKING...</h2>
+                    <div className="flex-1 bg-white border-thick flex flex-col items-center justify-center p-12 min-h-[400px] hard-shadow">
+                        <div className="relative">
+                            <div className="w-20 h-20 border-4 border-black rounded-full animate-ping absolute bg-yellow-200"></div>
+                            <div className="w-20 h-20 bg-yellow-400 rounded-full border-thick flex items-center justify-center relative z-10">
+                                <Zap className="w-10 h-10 text-black fill-white" />
+                            </div>
+                        </div>
+                        <h3 className="mt-8 text-2xl font-black text-black uppercase">JUDGING YOU...</h3>
+                        <p className="text-black font-bold mt-2">Trying not to laugh.</p>
                     </div>
                  ) : (
-                    <div className="h-full flex flex-col items-center justify-center p-12 border-8 border-black border-dashed bg-white/50 min-h-[400px] -rotate-1">
-                         <div className="w-32 h-32 border-8 border-black rounded-full flex items-center justify-center mb-6 bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"><Tv className="w-16 h-16 stroke-[2px]" /></div>
-                         <h3 className="font-black text-4xl opacity-50 uppercase text-center mb-2">SYSTEM READY</h3>
-                         <p className="font-bold text-xl opacity-40 bg-black text-white px-2">INSERT THUMBNAIL TO BEGIN</p>
+                    <div className="flex-1 bg-zinc-5 border-thick border-dashed flex flex-col items-center justify-center p-12 min-h-[400px]">
+                         <div className="w-20 h-20 bg-white border-thick rounded-full flex items-center justify-center mb-6 rotate-3"><BoxSelect className="w-8 h-8 text-black" /></div>
+                         <h3 className="text-black font-black text-xl uppercase">WAITING FOR VICTIMS</h3>
+                         <p className="text-zinc-500 font-bold mt-2">Paste a link to begin the roast.</p>
                     </div>
                  )
               ) : (
                 <>
-                  {isSusDetected && (
-                      <div className="bg-red-500 border-8 border-black p-4 text-white font-black animate-pulse flex items-center gap-4 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-                          <Siren className="w-12 h-12 stroke-[3px]" />
-                          <div><h3 className="text-3xl uppercase leading-none">CONTENT WARNING</h3><p className="text-sm font-mono mt-1 bg-black inline-block px-1">AI DETECTED: {result.susReason}</p></div>
-                      </div>
-                  )}
-                  
-                  {/* Save Button */}
-                  <div className="flex justify-end">
-                      <button onClick={() => setShowSaveModal(true)} className="bg-green-400 border-4 border-black p-2 px-4 font-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-green-300 flex items-center gap-2 hover:translate-y-1 hover:shadow-none transition-all">
-                          <Save className="w-5 h-5" /> SAVE RESULT
-                      </button>
-                  </div>
+                   {/* Row 1: Score & Chart */}
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Overall Score Card */}
+                        <div className={clsx("bg-white border-thick p-6 relative overflow-hidden flex flex-col justify-between hard-shadow rotate-[-1deg]", 
+                            result.scores.overall >= 8 ? "bg-green-100" : (result.scores.overall >= 5 ? "bg-yellow-100" : "bg-red-100")
+                        )}>
+                            <div className="flex justify-between items-start z-10">
+                                <div>
+                                    <h3 className="text-sm font-black text-black uppercase tracking-wider border-b-2 border-black">FINAL SCORE</h3>
+                                    <p className="text-black text-xs mt-1 font-bold">Based on pure vibes & math</p>
+                                </div>
+                                <button onClick={() => setShowSaveModal(true)} className="text-black hover:scale-110 transition-transform">
+                                    <Save className="w-6 h-6" />
+                                </button>
+                            </div>
+                            
+                            <div className="flex items-baseline gap-2 mt-4 z-10 justify-center py-6">
+                                <span className="text-8xl font-black tracking-tighter text-black drop-shadow-[4px_4px_0_rgba(255,255,255,1)]">
+                                    {result.scores.overall}
+                                </span>
+                                <span className="text-black font-black text-2xl rotate-[-5deg]">/ 10</span>
+                            </div>
+                        </div>
+                        
+                        {/* Radar Chart Card */}
+                        <div className="bg-white border-thick p-4 flex items-center justify-center relative hard-shadow rotate-1">
+                             <div className="absolute top-4 left-4 text-xs font-black text-black uppercase bg-yellow-300 px-2 border-2 border-black">PENTAGON OF PAIN</div>
+                             <div className="w-full h-64 mt-4">
+                                <AnalysisChart scores={result.scores} />
+                             </div>
+                        </div>
+                   </div>
 
-                  <div className={clsx("border-8 border-black p-6 shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] -rotate-1 relative transition-colors", isCelebrationMode ? "bg-yellow-200" : "bg-white")}>
-                    <div className="absolute -top-6 -right-4 bg-[#fca5a5] border-4 border-black px-4 py-1 transform rotate-6 shadow-[4px_4px_0px_0px_black]"><h3 className="text-xl font-black uppercase">The Verdict</h3></div>
-                    <p className="text-2xl font-bold leading-relaxed font-comic mt-2">"{result.summary}"</p>
-                  </div>
+                   {/* Row 2: Detailed Scores */}
+                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      <ScoreCard label="Clarity" score={result.scores.clarity} />
+                      <ScoreCard label="Curiosity" score={result.scores.curiosity} />
+                      <ScoreCard label="Text" score={result.scores.text_readability} />
+                      <ScoreCard label="Emotion" score={result.scores.emotion} />
+                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <ScoreCard label="Clarity" score={result.scores.clarity} icon={<Eye className="w-8 h-8 stroke-[3px]"/>} />
-                    <ScoreCard label="Curiosity" score={result.scores.curiosity} icon={<Target className="w-8 h-8 stroke-[3px]"/>} />
-                    <ScoreCard label="Text" score={result.scores.text_readability} icon={<Type className="w-8 h-8 stroke-[3px]"/>} />
-                    <ScoreCard label="Emotion" score={result.scores.emotion} icon={<Smile className="w-8 h-8 stroke-[3px]"/>} />
-                  </div>
-
-                  <div className="bg-white border-8 border-black p-0 shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] rotate-1">
-                      <div className="bg-black text-white font-black text-center py-2 text-xl uppercase tracking-widest">The Pentagon of Pain</div>
-                      <div className="p-4"><AnalysisChart scores={result.scores} /></div>
-                  </div>
-
-                  <div className={clsx("border-8 border-black p-6 flex items-center justify-between shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] transform -rotate-1 hover:rotate-0 transition-transform", isCelebrationMode ? "bg-gradient-to-r from-yellow-400 to-orange-500" : "bg-[#67e8f9]")}>
-                    <div><h3 className="font-black text-3xl uppercase italic">Final Grade</h3></div>
-                    <div className="text-7xl font-black text-white drop-shadow-[4px_4px_0px_rgba(0,0,0,1)] stroke-black stroke-[3px]" style={{ WebkitTextStroke: '3px black' }}>{result.scores.overall}/10</div>
-                  </div>
-
-                  <div className="border-8 border-black bg-white p-6 shadow-[10px_10px_0px_0px_rgba(0,0,0,1)]">
-                       <h3 className="font-black text-2xl mb-4 flex items-center gap-3 bg-yellow-300 inline-block px-2 border-4 border-black transform -rotate-2"><Sparkles className="w-6 h-6 text-black fill-white stroke-[3px]" /> {isCelebrationMode ? "WHY IT'S PERFECT:" : "FIX IT NOW:"}</h3>
-                       <ul className="space-y-4">
-                         {(result.suggestions || []).map((s, i) => (
-                           <li key={i} className="flex items-start gap-3 text-lg font-bold bg-gray-100 p-3 border-4 border-black hover:bg-green-100 transition-colors">
-                             <CheckCircle2 className="w-8 h-8 text-green-500 shrink-0 mt-0.5 fill-black stroke-white stroke-[3px]" />
-                             <span className="leading-tight">{s}</span>
-                           </li>
-                         ))}
-                       </ul>
-                  </div>
+                   {/* Row 3: Verdict & Suggestions */}
+                   <div className="grid grid-cols-1 gap-6">
+                        <div className="bg-white border-thick p-6 hard-shadow">
+                             <h3 className="text-lg font-black text-black uppercase mb-3 flex items-center gap-2 bg-pink-300 w-fit px-2 border-2 border-black rotate-[-1deg]">
+                                <Terminal className="w-5 h-5" /> THE VERDICT
+                             </h3>
+                             <p className="text-black text-xl leading-relaxed font-bold italic">
+                                "{result.summary}"
+                             </p>
+                        </div>
+                        
+                        <div className="bg-white border-thick p-6 hard-shadow">
+                           <h3 className="text-lg font-black text-black uppercase mb-4 flex items-center gap-2 bg-cyan-300 w-fit px-2 border-2 border-black rotate-1">
+                              <Target className="w-5 h-5" /> HOW TO FIX IT
+                           </h3>
+                           <div className="grid gap-3">
+                             {(result.suggestions || []).map((s, i) => (
+                               <div key={i} className="flex items-start gap-4 p-4 border-2 border-black bg-zinc-50 hover:bg-yellow-100 transition-colors">
+                                 <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center text-lg font-bold shrink-0">{i+1}</div>
+                                 <span className="text-base text-black font-bold pt-0.5">{s}</span>
+                               </div>
+                             ))}
+                           </div>
+                        </div>
+                   </div>
                 </>
               )}
             </div>
           </div>
         )}
 
-        {/* CHAT ROOM (Shared for both tabs) */}
+        {/* CHAT ROOM */}
         {((activeTab === 'RATER' && result && !isSusDetected) || (activeTab === 'BOT_HUNTER' && botResult)) && (
-            <div className="mt-20 max-w-4xl mx-auto">
-                <div className={clsx("border-8 border-black p-8 shadow-[20px_20px_0px_0px_rgba(0,0,0,1)]", isCelebrationMode ? "bg-yellow-300" : "bg-[#fdba74]")}>
-                    <div className="flex items-center gap-4 mb-8 border-b-8 border-black pb-4">
-                        <MessageSquare className="w-12 h-12 stroke-[3px]" />
-                        <h2 className="text-5xl font-black uppercase tracking-tighter">
-                            {activeTab === 'BOT_HUNTER' ? "THE INTERROGATION" : (isCelebrationMode ? "THE GLAZE ROOM" : "The Roast Room")}
+            <div className="mt-16 max-w-4xl mx-auto animate-slide-up">
+                <div className="bg-white border-thick hard-shadow overflow-hidden">
+                    <div className="bg-purple-400 border-b-thick p-4 flex items-center gap-3">
+                        <div className="w-3 h-3 rounded-full bg-green-400 border-2 border-black animate-pulse"></div>
+                        <h2 className="text-xl font-black text-black uppercase tracking-wide">
+                            {activeTab === 'BOT_HUNTER' ? "THE INTERROGATION" : "THE ROAST ROOM"}
                         </h2>
                     </div>
-                    <div className="bg-white border-4 border-black h-96 overflow-y-auto p-6 flex flex-col gap-4 mb-6 shadow-[inset_4px_4px_10px_rgba(0,0,0,0.1)]">
+                    
+                    <div className="h-96 overflow-y-auto p-6 flex flex-col gap-4 bg-dots">
                         {chatHistory.map((msg, idx) => (
-                            <div key={idx} className={clsx("flex flex-col max-w-[80%]", msg.role === 'user' ? "self-end items-end" : "self-start items-start")}>
-                                <div className={clsx("p-4 border-4 border-black text-xl font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]", msg.role === 'user' ? "bg-[#86efac] rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl" : "bg-[#fcd34d] rounded-tl-2xl rounded-tr-2xl rounded-br-2xl")}>{msg.text}</div>
-                                <span className="text-xs font-black uppercase mt-1 px-2 bg-black text-white">{msg.role === 'user' ? 'YOU' : 'THE AI'}</span>
+                            <div key={idx} className={clsx("flex flex-col max-w-[85%]", msg.role === 'user' ? "self-end items-end" : "self-start items-start")}>
+                                <div className={clsx(
+                                    "px-6 py-4 text-sm font-bold shadow-[2px_2px_0_0_#000] border-2 border-black", 
+                                    msg.role === 'user' ? "bg-blue-400 text-white rounded-2xl rounded-br-none" : "bg-white text-black rounded-2xl rounded-bl-none"
+                                )}>
+                                    {msg.text}
+                                </div>
+                                <span className="text-[10px] font-black text-black mt-1 px-1 uppercase">{msg.role === 'user' ? 'YOU' : 'RICE DROID'}</span>
                             </div>
                         ))}
-                        {isChatLoading && (<div className="self-start bg-[#fcd34d] p-4 border-4 border-black rounded-2xl animate-pulse"><Loader2 className="w-6 h-6 animate-spin stroke-[3px]" /></div>)}
+                        {isChatLoading && (
+                            <div className="self-start bg-white px-6 py-4 rounded-2xl rounded-bl-none border-2 border-black flex gap-2 shadow-[2px_2px_0_0_#000]">
+                                <div className="w-2 h-2 bg-black rounded-full animate-bounce"></div>
+                                <div className="w-2 h-2 bg-black rounded-full animate-bounce delay-100"></div>
+                                <div className="w-2 h-2 bg-black rounded-full animate-bounce delay-200"></div>
+                            </div>
+                        )}
                         <div ref={chatEndRef} />
                     </div>
-                    <div className="flex gap-2">
-                        <input type="text" className="flex-1 border-4 border-black p-4 text-xl font-bold outline-none focus:bg-gray-50 transition-colors shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" placeholder="Comment with the AI..." value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()} disabled={isChatLoading}/>
-                        <button onClick={handleSendMessage} disabled={isChatLoading || !chatInput.trim()} className="bg-[#67e8f9] border-4 border-black p-4 px-8 font-black text-2xl hover:bg-[#22d3ee] active:translate-y-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none transition-all disabled:opacity-50"><span className="hidden md:inline">YAP</span><Send className="md:hidden w-8 h-8 stroke-[3px]" /></button>
+                    
+                    <div className="p-4 bg-purple-100 border-t-thick">
+                        <div className="flex gap-2 bg-white p-2 border-thick focus-within:ring-2 focus-within:ring-black transition-all">
+                            <input 
+                                type="text" 
+                                className="flex-1 bg-transparent px-2 font-bold text-black outline-none placeholder-zinc-500 uppercase" 
+                                placeholder="SAY SOMETHING..." 
+                                value={chatInput} 
+                                onChange={(e) => setChatInput(e.target.value)} 
+                                onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()} 
+                                disabled={isChatLoading}
+                            />
+                            <button 
+                                onClick={handleSendMessage} 
+                                disabled={isChatLoading || !chatInput.trim()} 
+                                className="bg-black hover:bg-zinc-800 text-white p-3 font-bold transition-colors disabled:opacity-50"
+                            >
+                                <Send className="w-5 h-5" />
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1033,10 +1101,18 @@ const App: React.FC = () => {
 
       </main>
 
-      <footer className="border-t-8 border-black bg-white py-12 mt-24">
-        <div className="max-w-7xl mx-auto px-4 text-center flex flex-col items-center gap-4">
-          <p className="font-black text-xl">Powered by <span className="text-blue-600 bg-blue-100 px-2 border-2 border-blue-600 rounded-lg mx-1">Gemini 2.5 Flash</span> (Smart AI, Dumb UI)</p>
-          <button onClick={() => setShowChangelog(true)} className="flex items-center gap-2 font-bold text-lg hover:underline decoration-4 underline-offset-4 decoration-black"><History className="w-5 h-5" /> PATCH NOTES</button>
+      <footer className="border-t-thick bg-yellow-300 py-12 mt-20 font-sans">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-2">
+             <div className="bg-black p-2"><Zap className="w-4 h-4 text-white" /></div>
+             <span className="font-black text-xl text-black italic">RICETOOL</span>
+          </div>
+          <div className="flex items-center gap-6">
+             <span className="text-xs text-black font-bold">v2.12 (THE REVERT)</span>
+             <button onClick={() => setShowChangelog(true)} className="text-xs font-black text-black hover:underline uppercase bg-white border-2 border-black px-3 py-1 shadow-[2px_2px_0_0_#000] hover:translate-y-[1px] hover:shadow-none transition-all">
+                 READ LOGS
+             </button>
+          </div>
         </div>
       </footer>
     </div>

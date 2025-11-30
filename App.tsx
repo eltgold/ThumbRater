@@ -29,11 +29,25 @@ import {
   FileText,
   Settings,
   Key,
-  MonitorPlay
+  MonitorPlay,
+  Eye,
+  EyeOff,
+  ArrowLeft,
+  Link2
 } from 'lucide-react';
 import clsx from 'clsx';
 
 const CHANGELOG_DATA: ChangelogEntry[] = [
+  {
+      version: "v2.19",
+      date: "2025-12-12",
+      title: "Store Update & SafeSearch",
+      changes: [
+          "Added Channel View in Video Store (Click a channel to see videos!).",
+          "Added 'SafeSearch' Sus Blocker for store results.",
+          "Added 'Blur/Reveal' toggles for sensitive content."
+      ]
+  },
   {
       version: "v2.17",
       date: "2025-12-11",
@@ -101,6 +115,7 @@ const CHANGELOG_DATA: ChangelogEntry[] = [
 ];
 
 type ActiveTab = 'RATER' | 'BOT_HUNTER' | 'VIDEO_CHAT';
+type StoreView = 'SEARCH' | 'CHANNEL';
 
 // --- CUSTOM COMPONENTS ---
 const SmashLogo = () => (
@@ -137,11 +152,14 @@ const App: React.FC = () => {
   
   // Store / Search State
   const [showStoreModal, setShowStoreModal] = useState(false);
+  const [storeView, setStoreView] = useState<StoreView>('SEARCH');
   const [storeQuery, setStoreQuery] = useState('');
   const [isStoreSearching, setIsStoreSearching] = useState(false);
   const [storeResults, setStoreResults] = useState<SearchResult[]>([]);
   const [copiedItemId, setCopiedItemId] = useState<string | null>(null);
-  
+  const [selectedChannel, setSelectedChannel] = useState<SearchResult | null>(null);
+  const [revealedItems, setRevealedItems] = useState<Set<string>>(new Set());
+
   // Bot Hunter State
   const [botResult, setBotResult] = useState<BotAnalysisResult | null>(null);
   const [analyzingChannel, setAnalyzingChannel] = useState<ChannelDetails | null>(null);
@@ -200,7 +218,7 @@ const App: React.FC = () => {
 
   // Auto-fetch explore feed when Store is opened
   useEffect(() => {
-      if (showStoreModal && storeResults.length === 0) {
+      if (showStoreModal && storeResults.length === 0 && storeView === 'SEARCH') {
           setIsStoreSearching(true);
           fetchExploreFeed()
             .then(results => setStoreResults(results))
@@ -388,6 +406,7 @@ const App: React.FC = () => {
 
   const handleStoreSearch = async () => {
     if(!storeQuery.trim()) return;
+    setStoreView('SEARCH');
     setIsStoreSearching(true);
     setStoreResults([]);
     
@@ -401,17 +420,54 @@ const App: React.FC = () => {
     }
   };
 
-  const handleCopyLink = (item: SearchResult) => {
-    let link = "";
-    if (item.type === 'video') {
-      link = `https://www.youtube.com/watch?v=${item.id}`;
-    } else {
-      link = `https://www.youtube.com/channel/${item.id}`;
-    }
+  const handleCopy = (id: string, type: 'channel' | 'video', e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const link = type === 'channel' 
+        ? `https://www.youtube.com/channel/${id}` 
+        : `https://www.youtube.com/watch?v=${id}`;
     
     navigator.clipboard.writeText(link);
-    setCopiedItemId(item.id);
+    setCopiedItemId(id);
     setTimeout(() => setCopiedItemId(null), 2000);
+  };
+
+  const handleItemClick = async (item: SearchResult) => {
+    if (item.type === 'channel') {
+        // Switch to Channel View
+        setSelectedChannel(item);
+        setStoreView('CHANNEL');
+        setIsStoreSearching(true);
+        setStoreResults([]); // Clear current list to show loading
+        try {
+            const channelVideos = await fetchChannelLatestVideos(item.id);
+            setStoreResults(channelVideos);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsStoreSearching(false);
+        }
+    } else {
+        // Copy Video Link
+        handleCopy(item.id, 'video');
+    }
+  };
+
+  const handleBackToSearch = () => {
+      setStoreView('SEARCH');
+      setSelectedChannel(null);
+      setIsStoreSearching(true);
+      fetchExploreFeed().then(setStoreResults).finally(() => setIsStoreSearching(false));
+  };
+
+  const toggleReveal = (id: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      const newRevealed = new Set(revealedItems);
+      if (newRevealed.has(id)) {
+          newRevealed.delete(id);
+      } else {
+          newRevealed.add(id);
+      }
+      setRevealedItems(newRevealed);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -620,7 +676,7 @@ const App: React.FC = () => {
                <div className="space-y-4">
                   <p className="font-bold text-sm bg-blue-50 border-2 border-blue-200 p-3">
                      Connect your <span className="bg-[#fde047] px-1 border border-black">YouTube Data API Key</span> to access detailed account-level data.
-                     This allows for customized search results, precise metadata fetching, and finding content specific to your region or preferences in the Video Store.
+                     This allows for customized search results, precise metadata fetching, and finding custom content in the Video Store.
                   </p>
                   
                   <div className="flex flex-col gap-2">
@@ -671,7 +727,7 @@ const App: React.FC = () => {
                 <button onClick={handleDownloadJSON} className="flex items-center justify-center gap-3 bg-[#67e8f9] hover:bg-cyan-400 text-black p-4 font-bold border-[3px] border-black hard-shadow-sm transition-transform active:translate-y-1 active:shadow-none uppercase">
                    <Download className="w-5 h-5" /> Export JSON
                 </button>
-                <button onClick={() => setShowSaveModal(false)} className="mt-2 text-black hover:underline font-bold text-sm text-center">NEVERMIND</button>
+                <button onClick={() => setShowSaveModal(false)} className="mt-2 text-black hover:underline font-bold text-center">NEVERMIND</button>
               </div>
            </div>
         </div>
@@ -687,45 +743,75 @@ const App: React.FC = () => {
                   <div className="bg-[#fde047] p-4 border-b-[3px] border-black flex justify-between items-center shrink-0 z-10">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-white border-2 border-black rounded-full shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"><ShoppingBag className="w-5 h-5 text-black" /></div>
-                      <h2 className="text-xl font-bold text-black uppercase tracking-tight">Video Store</h2>
+                      <h2 className="text-xl font-bold text-black uppercase tracking-tight">
+                        {storeView === 'CHANNEL' && selectedChannel ? `CHANNEL: ${selectedChannel.title}` : "Video Store"}
+                      </h2>
                     </div>
-                    <button onClick={() => setShowStoreModal(false)} className="p-2 bg-[#ef4444] hover:bg-red-600 border-2 border-black text-white font-bold transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-y-[2px]">
-                      <X className="w-5 h-5" />
-                    </button>
+                    <div className="flex gap-2">
+                        {storeView === 'CHANNEL' && selectedChannel && (
+                            <>
+                            <button onClick={(e) => handleCopy(selectedChannel.id, 'channel', e)} className="px-3 py-1 bg-[#f9a8d4] border-2 border-black font-bold uppercase hover:bg-pink-300 flex items-center gap-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-y-[2px]">
+                                {copiedItemId === selectedChannel.id ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />} COPY LINK
+                            </button>
+                            <button onClick={handleBackToSearch} className="px-3 py-1 bg-white border-2 border-black font-bold uppercase hover:bg-zinc-100 flex items-center gap-1">
+                                <ArrowLeft className="w-4 h-4" /> Back
+                            </button>
+                            </>
+                        )}
+                        <button onClick={() => setShowStoreModal(false)} className="p-2 bg-[#ef4444] hover:bg-red-600 border-2 border-black text-white font-bold transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-y-[2px]">
+                        <X className="w-5 h-5" />
+                        </button>
+                    </div>
                   </div>
                   
                   <div className="p-6 bg-dots overflow-y-auto">
-                    <div className="flex gap-2 max-w-2xl mx-auto mb-8">
-                        <div className="flex-1 flex items-center bg-white border-[3px] border-black px-4 h-14 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                          <Search className="w-6 h-6 text-black mr-3" />
-                          <input 
-                            type="text" 
-                            placeholder="SEARCH STUFF..."
-                            className="w-full bg-transparent outline-none text-black placeholder-zinc-500 font-bold text-lg uppercase caret-black cursor-text"
-                            value={storeQuery}
-                            onChange={(e) => setStoreQuery(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleStoreSearch()}
-                          />
+                    {storeView === 'SEARCH' && (
+                        <div className="flex gap-2 max-w-2xl mx-auto mb-8">
+                            <div className="flex-1 flex items-center bg-white border-[3px] border-black px-4 h-14 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                            <Search className="w-6 h-6 text-black mr-3" />
+                            <input 
+                                type="text" 
+                                placeholder="SEARCH STUFF..."
+                                className="w-full bg-transparent outline-none text-black placeholder-zinc-500 font-bold text-lg uppercase caret-black cursor-text"
+                                value={storeQuery}
+                                onChange={(e) => setStoreQuery(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleStoreSearch()}
+                            />
+                            </div>
+                            <button 
+                            onClick={handleStoreSearch} 
+                            className="bg-black text-white px-8 font-bold text-xl border-[3px] border-black hover:bg-zinc-800 transition-colors shadow-[4px_4px_0px_0px_rgba(0,0,0,0)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)]"
+                            >
+                            {isStoreSearching ? <Loader2 className="animate-spin" /> : "GO"}
+                            </button>
                         </div>
-                        <button 
-                          onClick={handleStoreSearch} 
-                          className="bg-black text-white px-8 font-bold text-xl border-[3px] border-black hover:bg-zinc-800 transition-colors shadow-[4px_4px_0px_0px_rgba(0,0,0,0)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)]"
-                        >
-                          {isStoreSearching ? <Loader2 className="animate-spin" /> : "GO"}
-                        </button>
-                    </div>
+                    )}
+                    
+                    {storeView === 'CHANNEL' && selectedChannel && (
+                         <div className="mb-6 flex items-center gap-4 bg-white border-[3px] border-black p-4 hard-shadow-sm">
+                             <div className="w-16 h-16 bg-black rounded-full overflow-hidden border-2 border-black">
+                                 <img src={selectedChannel.thumbnail} className="w-full h-full object-cover" />
+                             </div>
+                             <div>
+                                 <h3 className="text-2xl font-black uppercase">{selectedChannel.title}</h3>
+                                 <p className="text-sm font-bold opacity-60">Latest Videos</p>
+                             </div>
+                         </div>
+                    )}
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     {storeResults?.length === 0 && !isStoreSearching && (
                         <div className="col-span-full flex flex-col items-center justify-center text-center py-20 opacity-30">
                           <Loader2 className="w-12 h-12 mb-4 animate-spin text-black" />
-                          <p className="text-xl font-bold uppercase">Loading Explore Feed...</p>
+                          <p className="text-xl font-bold uppercase">Loading...</p>
                         </div>
                     )}
-                    {storeResults?.map((item, idx) => (
+                    {storeResults?.map((item, idx) => {
+                        const isBlurred = item.isSus && !revealedItems.has(item.id);
+                        return (
                         <div 
                         key={item.id}
-                        onClick={() => handleCopyLink(item)}
+                        onClick={() => handleItemClick(item)}
                         className={clsx(
                             "group cursor-pointer bg-white border-[3px] border-black hard-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all relative",
                             idx % 2 === 0 ? "rotate-1" : "rotate-[-1deg]"
@@ -738,10 +824,36 @@ const App: React.FC = () => {
                             </div>
                           )}
 
-                          <div className="aspect-video bg-black relative border-b-[3px] border-black">
-                              <img src={item.thumbnail} alt={item.title} className="w-full h-full object-cover" />
-                              <div className={clsx("absolute top-2 right-2 text-black text-[10px] font-bold px-2 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]", item.type === 'channel' ? "bg-[#f9a8d4] rotate-3" : "bg-white rotate-[-2deg]")}>
-                                {item.type === 'channel' ? 'USER' : 'VID'}
+                          <div className="aspect-video bg-black relative border-b-[3px] border-black overflow-hidden group">
+                              <img src={item.thumbnail} alt={item.title} className={clsx("w-full h-full object-cover transition-all", isBlurred ? "blur-xl scale-110" : "")} />
+                              
+                              {isBlurred && (
+                                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/10 z-10 pointer-events-none">
+                                      <Siren className="w-8 h-8 text-[#ef4444] animate-pulse drop-shadow-md" />
+                                      <p className="text-white font-black uppercase text-lg drop-shadow-[0_2px_0_rgba(0,0,0,1)] mt-1">SUS CONTENT</p>
+                                  </div>
+                              )}
+
+                              {item.isSus && (
+                                  <button 
+                                    onClick={(e) => toggleReveal(item.id, e)}
+                                    className="absolute top-2 left-2 z-20 bg-black text-white p-1 border border-white hover:bg-zinc-800 transition-colors"
+                                  >
+                                      {isBlurred ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                  </button>
+                              )}
+                              
+                              {/* EXPLICIT COPY BUTTON */}
+                              <button
+                                onClick={(e) => handleCopy(item.id, item.type, e)}
+                                className="absolute bottom-2 right-2 bg-white border-2 border-black p-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-y-0.5 z-30 transition-all active:bg-zinc-200"
+                                title="Copy Link"
+                              >
+                                {copiedItemId === item.id ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
+                              </button>
+
+                              <div className={clsx("absolute top-2 right-2 text-black text-[10px] font-bold px-2 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] z-10", item.type === 'channel' ? "bg-[#f9a8d4] rotate-3" : "bg-white rotate-[-2deg]")}>
+                                {item.type === 'channel' ? 'CLICK TO VIEW' : 'CLICK TO COPY'}
                               </div>
                           </div>
                           <div className="p-3 bg-zinc-50">
@@ -749,7 +861,7 @@ const App: React.FC = () => {
                             <p className="text-xs text-zinc-500 font-bold uppercase tracking-wide">{item.channelTitle}</p>
                           </div>
                         </div>
-                    ))}
+                    )})}
                     </div>
                   </div>
               </div>
@@ -1038,7 +1150,9 @@ const App: React.FC = () => {
               <div className="w-24 h-24 bg-[#fde047] border-[3px] border-black flex items-center justify-center animate-bounce hard-shadow mb-8 rounded-full">
                  <Zap className="w-12 h-12 text-black fill-white" />
               </div>
-              <p className="text-4xl font-bold bg-white px-6 py-3 border-[3px] border-black -rotate-2 uppercase tracking-tighter">COOKING...</p>
+              <p className="text-4xl font-bold bg-white px-6 py-3 border-[3px] border-black -rotate-2 uppercase tracking-tighter">
+                {activeTab === 'VIDEO_CHAT' ? "WATCHING VIDEO..." : "COOKING..."}
+              </p>
               <p className="mt-4 text-sm font-bold opacity-60">Do not turn off your console.</p>
            </div>
         )}
@@ -1432,7 +1546,7 @@ const App: React.FC = () => {
       {/* FOOTER */}
       <footer className="absolute bottom-4 w-full text-center font-bold text-xs pointer-events-none">
          <button onClick={() => setShowChangelog(true)} className="pointer-events-auto bg-white border-2 border-black px-3 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-y-[2px] transition-all uppercase">
-           v2.17 Changelog
+           v2.19 Changelog
          </button>
          <p className="mt-2 opacity-50">BUILT WITH HATE & LOVE</p>
       </footer>

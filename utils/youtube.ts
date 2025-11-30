@@ -60,6 +60,7 @@ export interface SearchResult {
   channelTitle: string;
   publishedAt?: string;
   description?: string;
+  isSus?: boolean; // New field for SafeSearch
 }
 
 const INVIDIOUS_INSTANCES = [
@@ -70,7 +71,20 @@ const INVIDIOUS_INSTANCES = [
   'https://invidious.nerdvpn.de'
 ];
 
-// Helper to get the best available API Key
+// Lightweight client-side sus detector for Store Results
+const SUS_KEYWORDS = [
+  "nsfw", "18+", "porn", "xxx", "sex", "nude", "naked", "boobs", "ass", 
+  "thicc", "hot girl", "bikini", "lingerie", "onlyfans", "dick", "cock", 
+  "pussy", "hentai", "ahegao", "gore", "death", "murder", "kill", "suicide",
+  "strip", "stripper"
+];
+
+const checkForSus = (text: string): boolean => {
+  const lower = text.toLowerCase();
+  return SUS_KEYWORDS.some(k => lower.includes(k));
+};
+
+// Helper to get the best available API Key dynamically
 const getApiKey = (): string | null => {
   // 1. User provided key
   const userKey = localStorage.getItem('ricetool_api_key');
@@ -219,7 +233,8 @@ export const searchYouTubeVideos = async (query: string): Promise<SearchResult[]
             thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url,
             channelTitle: item.snippet.channelTitle,
             publishedAt: item.snippet.publishedAt,
-            description: item.snippet.description
+            description: item.snippet.description,
+            isSus: checkForSus(item.snippet.title || "")
           }));
         }
       }
@@ -241,7 +256,8 @@ export const searchYouTubeVideos = async (query: string): Promise<SearchResult[]
               title: item.title || item.author,
               thumbnail: item.videoThumbnails?.find((t: any) => t.quality === 'high')?.url || item.videoThumbnails?.[0]?.url || `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`,
               channelTitle: item.author,
-              publishedAt: item.published ? new Date(item.published * 1000).toISOString() : undefined
+              publishedAt: item.published ? new Date(item.published * 1000).toISOString() : undefined,
+              isSus: checkForSus(item.title || item.author || "")
             }));
         }
       }
@@ -277,7 +293,8 @@ export const fetchChannelLatestVideos = async (channelId: string): Promise<Searc
                         title: item.snippet.title,
                         thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url,
                         channelTitle: item.snippet.channelTitle,
-                        publishedAt: item.snippet.publishedAt
+                        publishedAt: item.snippet.publishedAt,
+                        isSus: checkForSus(item.snippet.title || "")
                     }));
                 }
             }
@@ -299,7 +316,8 @@ export const fetchChannelLatestVideos = async (channelId: string): Promise<Searc
                         title: item.title,
                         thumbnail: item.videoThumbnails?.find((t: any) => t.quality === 'high')?.url || item.videoThumbnails?.[0]?.url,
                         channelTitle: item.author,
-                        publishedAt: new Date(item.published * 1000).toISOString()
+                        publishedAt: new Date(item.published * 1000).toISOString(),
+                        isSus: checkForSus(item.title || "")
                     }));
                 }
             }

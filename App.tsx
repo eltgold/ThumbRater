@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { extractVideoId, blobToBase64, fetchVideoMetadata, searchYouTubeVideos, fetchChannelVideos, fetchChannelDetails, extractChannelId, fetchExploreFeed } from './utils/youtube';
-import { analyzeThumbnail, sendChatMessage, analyzeBotProbability, analyzeVideoContext } from './services/geminiService';
-import { AppState, AnalysisResult, ChatMessage, ChangelogEntry, BotAnalysisResult, SavedItem, VideoAnalysisResult, RiceTubeCategory, SearchResult, ChannelDetails, VideoMetadata } from './types';
+import { analyzeThumbnail, sendChatMessage, analyzeBotProbability, analyzeVideoContext, analyzeDirtyMind } from './services/geminiService';
+import { AppState, AnalysisResult, ChatMessage, ChangelogEntry, BotAnalysisResult, SavedItem, VideoAnalysisResult, RiceTubeCategory, SearchResult, ChannelDetails, VideoMetadata, DirtyAnalysisResult } from './types';
 import { ScoreCard } from './components/ScoreCard';
 import { 
   Youtube, Search, CircleAlert, Loader2, Send, X, 
@@ -9,35 +9,46 @@ import {
   ShoppingBag, Check, Hammer, Settings, Key, MonitorPlay, Eye, 
   EyeOff, ArrowLeft, Link2, HelpCircle, Flame, 
   Home, Gamepad2, Music2, Cpu, Play, FileText, Download, MessageSquare, Megaphone,
-  RotateCw, RefreshCcw, Lock, Unlock
+  RotateCw, RefreshCcw, Lock, Unlock, Brain, FlaskConical
 } from 'lucide-react';
 import clsx from 'clsx';
 import { AnalysisChart } from './components/AnalysisChart';
 
 const CHANGELOG_DATA: ChangelogEntry[] = [
   {
-      version: "v2.29",
-      date: "2025-12-19",
-      title: "the deep web update",
+      version: "v2.32",
+      date: "2025-12-22",
+      title: "the lobotomy update",
       changes: [
-          "added captcha to sus tab.",
-          "added refresh button to ricetube.",
-          "randomized sus queries."
+          "added weird zoom effect.",
+          "added crt scanlines.",
+          "ui is now 100% less professional.",
+          "cursor is confused."
       ]
   },
   {
-      version: "v2.28",
-      date: "2025-12-18",
-      title: "the lowercase update",
+      version: "v2.31",
+      date: "2025-12-21",
+      title: "the tape update",
       changes: [
-          "everything is lowercase now.",
-          "added report channel button.",
-          "fixed changelog modal."
+          "beta badges now look like tape.",
+          "dirty tester now supports channel links.",
+          "fixed input placeholders."
+      ]
+  },
+  {
+      version: "v2.30",
+      date: "2025-12-20",
+      title: "the down bad update",
+      changes: [
+          "added dirty minded tester (beta).",
+          "added beta badge to ask video.",
+          "optimized prompts for gen z."
       ]
   }
 ];
 
-type ActiveTab = 'RATER' | 'BOT_HUNTER' | 'VIDEO_CHAT';
+type ActiveTab = 'RATER' | 'BOT_HUNTER' | 'VIDEO_CHAT' | 'DIRTY_TESTER';
 type StoreView = 'SEARCH' | 'CHANNEL';
 
 const SmashLogo = () => (
@@ -55,6 +66,12 @@ const SmashLogo = () => (
 
 const Tape = ({ className }: { className?: string }) => (
     <div className={clsx("absolute w-24 h-8 bg-white/60 border border-black/10 rotate-[-3deg] backdrop-blur-sm shadow-sm z-20", className)}></div>
+);
+
+const BetaTape = () => (
+    <span className="absolute -top-3 -right-4 bg-[#fde047] text-black text-[9px] font-black px-2 py-0.5 border border-black rotate-[-10deg] shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] z-10 dark:border-white dark:shadow-[1px_1px_0px_0px_rgba(255,255,255,1)]">
+        BETA
+    </span>
 );
 
 const RiceDroidAvatar = () => (
@@ -103,6 +120,9 @@ const App: React.FC = () => {
   const [videoAnalysisResult, setVideoAnalysisResult] = useState<VideoAnalysisResult | null>(null);
   const [currentVideoMetadata, setCurrentVideoMetadata] = useState<VideoMetadata | null>(null);
   const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
+
+  const [dirtyResult, setDirtyResult] = useState<DirtyAnalysisResult | null>(null);
+  const [dirtyInput, setDirtyInput] = useState<string>('');
   
   const [showImageWarning, setShowImageWarning] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
@@ -262,6 +282,8 @@ const App: React.FC = () => {
     setVideoAnalysisResult(null);
     setCurrentVideoMetadata(null);
     setActiveVideoId(null);
+    setDirtyResult(null);
+    setDirtyInput('');
     setVideoTitle(null);
     setVideoDesc(null);
     setVideoKeywords([]);
@@ -271,6 +293,8 @@ const App: React.FC = () => {
     setChatInput('');
     setShowSusContent(false);
     setShowSaveModal(false);
+    setThumbnailSrc(null);
+    setImageBase64(null);
   };
 
   const fetchImageFromVideoId = async (videoId: string) => {
@@ -312,6 +336,32 @@ const App: React.FC = () => {
       setErrorMsg("could not fetch thumbnail. the video might be private or invalid.");
       setAppState(AppState.ERROR);
     }
+  };
+
+  const fetchImageFromChannel = async (channelId: string) => {
+      setAppState(AppState.LOADING_IMAGE);
+      try {
+          const details = await fetchChannelDetails(channelId);
+          if (!details || !details.thumbnailUrl) throw new Error("Channel not found");
+          
+          setVideoTitle(details.title); // Use Channel Name as "Title"
+          setVideoDesc(details.description);
+          
+          // Fetch PFP through proxy to get Base64
+          const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(details.thumbnailUrl)}`;
+          const response = await fetch(proxyUrl);
+          const blob = await response.blob();
+          const base64 = await blobToBase64(blob);
+          
+          setImageBase64(base64);
+          const objectUrl = URL.createObjectURL(blob);
+          setThumbnailSrc(objectUrl);
+          setAppState(AppState.READY_TO_ANALYZE);
+
+      } catch (e) {
+          setErrorMsg("could not fetch channel details.");
+          setAppState(AppState.ERROR);
+      }
   };
 
   const runBotAnalysis = async (channelId: string) => {
@@ -357,6 +407,19 @@ const App: React.FC = () => {
       }
   };
 
+  const runDirtyAnalysis = async (imageBase64: string, title: string) => {
+      setAppState(AppState.ANALYZING);
+      try {
+          const result = await analyzeDirtyMind(imageBase64, title);
+          setDirtyResult(result);
+          setAppState(AppState.SUCCESS);
+      } catch (e) {
+          console.error(e);
+          setErrorMsg("analysis failed.");
+          setAppState(AppState.ERROR);
+      }
+  };
+
   const handleInputSubmit = async () => {
     const input = url.trim();
     if (!input) return;
@@ -370,6 +433,30 @@ const App: React.FC = () => {
          setErrorMsg("invalid youtube video url.");
          setAppState(AppState.ERROR);
       }
+    } else if (activeTab === 'DIRTY_TESTER') {
+      resetAnalysis();
+      const videoId = extractVideoId(input);
+      const channelId = extractChannelId(input);
+      
+      if (videoId) {
+          fetchImageFromVideoId(videoId);
+      } else if (channelId) {
+          fetchImageFromChannel(channelId);
+      } else {
+          // Attempt to resolve channel if it's a handle
+          if (input.includes('@') || input.includes('youtube.com/')) {
+               // Fallback: treat as channel ID or search?
+               // For now, let's treat any non-video link as potential channel logic failure or assume invalid.
+               // Actually, extractChannelId handles /channel/.
+               // If it's a handle (@user), we'd need search. 
+               // For simplicity, error if not standard link.
+               setErrorMsg("invalid video or channel link.");
+               setAppState(AppState.ERROR);
+          } else {
+               setErrorMsg("invalid link.");
+               setAppState(AppState.ERROR);
+          }
+      }
     } else if (activeTab === 'VIDEO_CHAT') {
         const videoId = extractVideoId(input);
         if (videoId) {
@@ -380,6 +467,7 @@ const App: React.FC = () => {
             setAppState(AppState.ERROR);
         }
     } else {
+      // BOT HUNTER
       resetAnalysis();
       let channelId = extractChannelId(input);
       const videoId = extractVideoId(input);
@@ -427,15 +515,24 @@ const App: React.FC = () => {
     }
     const file = e.target.files?.[0];
     if (!file) return;
-    setShowImageWarning(true);
+    
     resetAnalysis();
-    setAppState(AppState.LOADING_IMAGE);
+    
     try {
+      const base64 = await blobToBase64(file);
       const objectUrl = URL.createObjectURL(file);
       setThumbnailSrc(objectUrl);
-      const base64 = await blobToBase64(file);
       setImageBase64(base64);
-      setAppState(AppState.READY_TO_ANALYZE);
+      // For raw file uploads, title is empty.
+      setVideoTitle("Uploaded Image"); 
+      
+      if (activeTab === 'DIRTY_TESTER') {
+          // Wait for user to click button, same flow as Rater
+          setAppState(AppState.READY_TO_ANALYZE);
+      } else {
+          setShowImageWarning(true);
+          setAppState(AppState.READY_TO_ANALYZE);
+      }
     } catch (err) {
       setErrorMsg("failed to process file.");
       setAppState(AppState.ERROR);
@@ -444,6 +541,12 @@ const App: React.FC = () => {
 
   const handleAnalyze = async () => {
     if (!imageBase64) return;
+    
+    if (activeTab === 'DIRTY_TESTER') {
+        runDirtyAnalysis(imageBase64, videoTitle || "Unknown Title");
+        return;
+    }
+
     setAppState(AppState.ANALYZING);
     setShowSusContent(false);
     try {
@@ -466,6 +569,7 @@ const App: React.FC = () => {
     if (activeTab === 'RATER' && (!imageBase64 || !result)) return;
     if (activeTab === 'BOT_HUNTER' && (!botResult || !analyzingChannel)) return;
     if (activeTab === 'VIDEO_CHAT' && (!videoAnalysisResult || !currentVideoMetadata)) return;
+    if (activeTab === 'DIRTY_TESTER' && !dirtyResult) return;
 
     const userMsg = chatInput;
     setChatInput('');
@@ -480,7 +584,8 @@ const App: React.FC = () => {
           botResult: botResult,
           channelDetails: analyzingChannel,
           videoResult: videoAnalysisResult,
-          videoMetadata: activeTab === 'RATER' ? { title: videoTitle, description: videoDesc, keywords: videoKeywords } : currentVideoMetadata
+          videoMetadata: (activeTab === 'RATER' || activeTab === 'DIRTY_TESTER') ? { title: videoTitle, description: videoDesc, keywords: videoKeywords } : currentVideoMetadata,
+          dirtyResult: dirtyResult
       });
       setChatHistory(prev => [...prev, { role: 'model', text: aiResponse }]);
     } catch (error) {
@@ -493,6 +598,7 @@ const App: React.FC = () => {
   const prepareSaveItem = (): SavedItem | null => {
       if (activeTab === 'RATER' && result && imageBase64) return { id: crypto.randomUUID(), date: new Date().toISOString(), type: 'THUMB_RATER', thumbnailBase64: imageBase64, thumbnailResult: result, videoTitle, videoDesc, videoKeywords };
       if (activeTab === 'BOT_HUNTER' && botResult && analyzingChannel) return { id: crypto.randomUUID(), date: new Date().toISOString(), type: 'BOT_HUNTER', botResult, channelDetails: analyzingChannel };
+      if (activeTab === 'DIRTY_TESTER' && dirtyResult && imageBase64) return { id: crypto.randomUUID(), date: new Date().toISOString(), type: 'DIRTY_TESTER', dirtyResult, thumbnailBase64: imageBase64, videoTitle };
       return null;
   };
 
@@ -557,6 +663,13 @@ const App: React.FC = () => {
         setAnalyzingChannel(item.channelDetails);
         setBotResult(item.botResult!);
         setAppState(AppState.SUCCESS);
+    } else if (item.type === 'DIRTY_TESTER') {
+        setActiveTab('DIRTY_TESTER');
+        setImageBase64(item.thumbnailBase64!);
+        setThumbnailSrc(`data:image/jpeg;base64,${item.thumbnailBase64}`);
+        setVideoTitle(item.videoTitle || "Unknown");
+        setDirtyResult(item.dirtyResult!);
+        setAppState(AppState.SUCCESS);
     }
   };
 
@@ -570,7 +683,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-bliss text-black font-sans pb-20 relative overflow-hidden dark:bg-zinc-900">
-      
+      {/* ... [RiceTube Modal Component] ... */}
       {showRiceTube && (
           <div className="fixed inset-0 z-[200] bg-zinc-900 font-sans text-white flex flex-col">
               <div className="h-16 bg-[#202020] flex items-center justify-between px-4 border-b border-zinc-700 shrink-0">
@@ -635,6 +748,7 @@ const App: React.FC = () => {
                   </div>
 
                   <div className="flex-1 bg-[#181818] p-6 overflow-y-auto">
+                      {/* ... [RiceTube Content] ... */}
                       {rtCategory === 'SUS' && !isSusUnlocked ? (
                           <div className="flex flex-col items-center justify-center h-full">
                               <div className="bg-zinc-800 border-2 border-red-500 p-8 rounded-xl max-w-md w-full text-center shadow-xl">
@@ -732,35 +846,27 @@ const App: React.FC = () => {
           </div>
       )}
 
+      {/* ... [Modals] ... */}
       {showSettings && (
           <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 p-4 font-sans backdrop-blur-sm">
               <div className="bg-white max-w-md w-full border-[3px] border-black hard-shadow rotate-1 relative dark:bg-zinc-800 dark:border-white">
                   <button onClick={() => setShowSettings(false)} className="absolute top-2 right-2 p-1 hover:bg-zinc-100 dark:hover:bg-zinc-700 dark:text-white"><X className="w-5 h-5"/></button>
                   <div className="p-8 flex flex-col items-center text-center">
                       <h2 className="text-2xl font-black uppercase mb-4 dark:text-white">settings</h2>
-                      
                       <div className="w-full text-left mb-6">
                           <label className="text-xs font-black uppercase ml-1 dark:text-white">custom api key</label>
                           <div className="relative mt-1">
                               <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                              <input 
-                                  type="text" 
-                                  value={apiKeyInput}
-                                  onChange={(e) => setApiKeyInput(e.target.value)}
-                                  placeholder="AIzaSy... (optional)"
-                                  className="w-full border-2 border-black p-3 pl-10 font-mono text-sm outline-none focus:bg-yellow-50 dark:bg-zinc-900 dark:border-white dark:text-white dark:focus:bg-zinc-800"
-                              />
+                              <input type="text" value={apiKeyInput} onChange={(e) => setApiKeyInput(e.target.value)} placeholder="AIzaSy... (optional)" className="w-full border-2 border-black p-3 pl-10 font-mono text-sm outline-none focus:bg-yellow-50 dark:bg-zinc-900 dark:border-white dark:text-white dark:focus:bg-zinc-800"/>
                           </div>
                           <p className="text-[10px] font-bold text-zinc-400 mt-1">use your own key to bypass rate limits.</p>
                       </div>
-                      
                       <div className="w-full text-left mb-6 flex items-center justify-between">
                          <label className="text-xs font-black uppercase ml-1 dark:text-white">dark mode</label>
                          <button onClick={toggleDarkMode} className="p-2 bg-zinc-200 dark:bg-zinc-700 rounded-full">
                             {isDarkMode ? <span className="text-xs">on</span> : <span className="text-xs">off</span>}
                          </button>
                       </div>
-
                       <button onClick={handleSaveSettings} className="w-full bg-green-500 text-black font-bold py-3 border-[3px] border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none hover:bg-green-400 transition-all uppercase flex items-center justify-center gap-2 dark:border-white dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]">
                           <Check className="w-5 h-5" /> save changes
                       </button>
@@ -768,7 +874,6 @@ const App: React.FC = () => {
               </div>
           </div>
       )}
-
       {showSaveModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 font-sans backdrop-blur-sm">
           <div className="bg-white border-[3px] border-black hard-shadow p-6 max-w-sm w-full rotate-[-1deg] relative dark:bg-zinc-800 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
@@ -785,7 +890,6 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
-
       {showSavedList && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 font-sans backdrop-blur-sm">
            <div className="bg-white border-[3px] border-black hard-shadow w-full max-w-2xl h-[80vh] flex flex-col relative dark:bg-zinc-800 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
@@ -793,7 +897,6 @@ const App: React.FC = () => {
                   <h2 className="text-2xl font-black uppercase flex items-center gap-2 dark:text-white"><FolderOpen className="w-6 h-6"/> the vault</h2>
                   <button onClick={() => setShowSavedList(false)} className="hover:bg-black/10 p-1 dark:text-white"><X className="w-6 h-6"/></button>
                </div>
-               
                <div className="flex-1 overflow-auto p-4 space-y-4 bg-[url('https://www.transparenttextures.com/patterns/graphy.png')] dark:bg-zinc-800">
                   {savedItems.length === 0 && (
                     <div className="text-center py-10 opacity-50 font-bold dark:text-white">
@@ -806,11 +909,11 @@ const App: React.FC = () => {
                     <div key={item.id} className="bg-white border-[3px] border-black p-4 hard-shadow-sm flex justify-between items-center group hover:scale-[1.01] transition-transform dark:bg-zinc-700 dark:border-white dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
                        <div onClick={() => loadSavedItem(item)} className="cursor-pointer flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                             <span className={clsx("text-[10px] font-bold px-1 border border-black dark:border-white dark:text-white", item.type === 'THUMB_RATER' ? 'bg-pink-300' : 'bg-cyan-300')}>{item.type}</span>
+                             <span className={clsx("text-[10px] font-bold px-1 border border-black dark:border-white dark:text-white", item.type === 'THUMB_RATER' ? 'bg-pink-300' : item.type === 'DIRTY_TESTER' ? 'bg-orange-300' : 'bg-cyan-300')}>{item.type}</span>
                              <span className="text-xs text-zinc-500 font-bold dark:text-zinc-300">{new Date(item.date).toLocaleDateString()}</span>
                           </div>
                           <h3 className="font-bold text-lg leading-tight dark:text-white">
-                            {item.type === 'THUMB_RATER' ? (item.videoTitle || "untitled thumbnail") : item.channelDetails?.title}
+                            {item.type === 'THUMB_RATER' ? (item.videoTitle || "untitled thumbnail") : item.type === 'DIRTY_TESTER' ? (item.videoTitle || "dirty analysis") : item.channelDetails?.title}
                           </h3>
                        </div>
                        <button onClick={() => deleteSavedItem(item.id)} className="p-2 hover:bg-red-100 text-red-600 rounded dark:hover:bg-red-900">
@@ -822,7 +925,6 @@ const App: React.FC = () => {
            </div>
         </div>
       )}
-
       {showChangelog && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 p-4 font-sans backdrop-blur-sm">
            <div className="bg-white border-[3px] border-black hard-shadow w-full max-w-lg relative rotate-1 dark:bg-zinc-800 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
@@ -849,7 +951,6 @@ const App: React.FC = () => {
            </div>
         </div>
       )}
-
       {showHelp && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 p-4 font-sans backdrop-blur-sm">
            <div className="bg-white border-[3px] border-black hard-shadow w-full max-w-2xl max-h-[90vh] flex flex-col relative dark:bg-zinc-800 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
@@ -868,19 +969,18 @@ const App: React.FC = () => {
                           <p>paste a channel link. the ai scans their last 24 videos for repetitive titles, spammy uploads, and soulless descriptions to determine if they are a human or an npc farm.</p>
                       </section>
                       <section>
-                          <h3 className="text-xl font-black mb-2 bg-purple-300 inline-block px-2 border border-black dark:text-black">3. ask video</h3>
-                          <p>paste a video link. the ai "watches" the metadata (and uses google search) so you can chat about the video content without watching it yourself.</p>
+                          <h3 className="text-xl font-black mb-2 bg-purple-300 inline-block px-2 border border-black dark:text-black">3. ask video (beta)</h3>
+                          <p>paste a video link. the ai "watches" the metadata so you can chat about the video content without watching it yourself.</p>
                       </section>
                       <section>
-                          <h3 className="text-xl font-black mb-2 bg-white border border-black dark:text-black">portable & free</h3>
-                          <p>this tool runs in your browser. you can download the source code and run it locally. no login required.</p>
+                          <h3 className="text-xl font-black mb-2 bg-orange-300 inline-block px-2 border border-black dark:text-black">4. dirty tester (beta)</h3>
+                          <p>paste a video link or upload an image. the ai checks if the thumbnail/title combo is "sus", "down bad", or innocent.</p>
                       </section>
                   </div>
                </div>
            </div>
         </div>
       )}
-      
       {showReporting && (
           <div className="fixed inset-0 z-[250] flex flex-col items-center justify-center bg-red-600/90 font-sans text-white p-8 text-center backdrop-blur-md animate-in fade-in">
               <Megaphone className="w-24 h-24 mb-6 animate-bounce" />
@@ -952,7 +1052,18 @@ const App: React.FC = () => {
                         activeTab === 'VIDEO_CHAT' ? "bg-[#a78bfa] text-black border-black dark:border-white" : "bg-zinc-100 text-zinc-400 border-transparent hover:text-black hover:border-black dark:bg-zinc-900 dark:text-zinc-500 dark:hover:border-white dark:hover:text-white"
                     )}
                 >
+                    <BetaTape />
                     ask video
+                </button>
+                <button 
+                    onClick={() => { setActiveTab('DIRTY_TESTER'); resetAnalysis(); }}
+                    className={clsx(
+                        "px-6 py-3 text-lg font-bold uppercase transition-all border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 relative group dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]",
+                        activeTab === 'DIRTY_TESTER' ? "bg-orange-400 text-black border-black dark:border-white" : "bg-zinc-100 text-zinc-400 border-transparent hover:text-black hover:border-black dark:bg-zinc-900 dark:text-zinc-500 dark:hover:border-white dark:hover:text-white"
+                    )}
+                >
+                    <BetaTape />
+                    dirty tester
                 </button>
             </div>
         </div>
@@ -977,25 +1088,31 @@ const App: React.FC = () => {
                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#a78bfa] to-[#8b5cf6] drop-shadow-none">suck?</span>
                    </>
                 )}
+                {activeTab === 'DIRTY_TESTER' && (
+                   <>
+                     is it <br/>
+                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-500 drop-shadow-none">sus?</span>
+                   </>
+                )}
             </h1>
             <p className="mt-4 text-xl font-bold text-black bg-[#fde047] inline-block px-4 py-1 border-[3px] border-black rotate-[-2deg] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:border-white dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]">
-                {activeTab === 'RATER' ? "find out if you are cooked." : activeTab === 'BOT_HUNTER' ? "find out if they are fake." : "chat about any video."}
+                {activeTab === 'RATER' ? "find out if you are cooked." : activeTab === 'BOT_HUNTER' ? "find out if they are fake." : activeTab === 'VIDEO_CHAT' ? "chat about any video." : "check your dirty mind."}
             </p>
         </div>
 
         <div className="max-w-3xl mx-auto mb-16 relative">
           <div className="absolute -top-6 -left-6 bg-black text-white px-3 py-1 font-bold text-xs rotate-[-5deg] border-2 border-white shadow-md z-10 dark:bg-white dark:text-black dark:border-black">
-              {activeTab === 'RATER' ? "paste it" : activeTab === 'BOT_HUNTER' ? "expose them" : "watch it"}
+              {activeTab === 'RATER' ? "paste it" : activeTab === 'BOT_HUNTER' ? "expose them" : activeTab === 'VIDEO_CHAT' ? "watch it" : activeTab === 'DIRTY_TESTER' ? "check it" : "type it"}
           </div>
           <div className="relative group hover:scale-[1.01] transition-transform duration-200">
             <div className={clsx("relative flex p-3 border-[3px] border-black hard-shadow dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]", 
-                 activeTab === 'RATER' ? "bg-[#67e8f9]" : activeTab === 'BOT_HUNTER' ? "bg-[#86efac]" : "bg-[#a78bfa]")}>
+                 activeTab === 'RATER' ? "bg-[#67e8f9]" : activeTab === 'BOT_HUNTER' ? "bg-[#86efac]" : activeTab === 'VIDEO_CHAT' ? "bg-[#a78bfa]" : "bg-orange-400")}>
                <div className="flex items-center justify-center w-14 text-black border-r-[3px] border-black mr-3 bg-white/30">
-                  {activeTab === 'RATER' ? <Youtube className="w-8 h-8" /> : activeTab === 'BOT_HUNTER' ? <Bot className="w-8 h-8" /> : <MonitorPlay className="w-8 h-8" />}
+                  {activeTab === 'RATER' ? <Youtube className="w-8 h-8" /> : activeTab === 'BOT_HUNTER' ? <Bot className="w-8 h-8" /> : activeTab === 'VIDEO_CHAT' ? <MonitorPlay className="w-8 h-8" /> : <Brain className="w-8 h-8"/>}
                </div>
                <input 
                  type="text" 
-                 placeholder={activeTab === 'RATER' ? "paste youtube link..." : activeTab === 'BOT_HUNTER' ? "paste channel link..." : "paste video link..."}
+                 placeholder={activeTab === 'RATER' ? "paste youtube link..." : activeTab === 'BOT_HUNTER' ? "paste channel link..." : activeTab === 'VIDEO_CHAT' ? "paste video link..." : "paste video or channel link..."}
                  className="w-full bg-transparent outline-none text-black placeholder-black/50 px-2 font-bold text-xl uppercase caret-black cursor-text"
                  value={url}
                  onChange={handleUrlChange}
@@ -1005,17 +1122,17 @@ const App: React.FC = () => {
                  onClick={handleInputSubmit} 
                  className="bg-[#ec4899] hover:bg-pink-400 text-black px-8 font-bold text-xl border-[3px] border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-y-1 transition-all uppercase"
                >
-                 {activeTab === 'RATER' ? "judge me" : activeTab === 'BOT_HUNTER' ? "scan" : "chat"}
+                 {activeTab === 'RATER' ? "judge me" : activeTab === 'BOT_HUNTER' ? "scan" : activeTab === 'VIDEO_CHAT' ? "chat" : "check"}
                </button>
             </div>
             <div className="absolute -top-1 -right-1 w-2 h-2 bg-black dark:bg-white"></div>
             <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-black dark:bg-white"></div>
           </div>
           
-          {activeTab === 'RATER' && (
+          {(activeTab === 'RATER' || activeTab === 'DIRTY_TESTER') && (
               <div className="text-center mt-4">
                   <button onClick={() => fileInputRef.current?.click()} className="text-xs font-bold text-black hover:underline uppercase tracking-wide bg-white px-2 py-1 border border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-y-[2px] transition-all dark:bg-zinc-800 dark:text-white dark:border-white dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]">
-                    or upload a raw file (dumber)
+                    {activeTab === 'DIRTY_TESTER' ? "or upload image to check" : "or upload a raw file (dumber)"}
                   </button>
               </div>
           )}
@@ -1047,6 +1164,16 @@ const App: React.FC = () => {
                         <p className="font-bold text-center mt-2">skipping ads for you.</p>
                     </div>
                  </div>
+             ) : activeTab === 'DIRTY_TESTER' ? (
+                 <div className="flex flex-col items-center">
+                    <div className="w-20 h-20 bg-orange-400 rounded-full border-[4px] border-black flex items-center justify-center animate-pulse mb-6 dark:border-white">
+                        <Brain className="w-10 h-10 text-black" />
+                    </div>
+                    <div className="bg-orange-400 border-[3px] border-black p-4 hard-shadow rotate-1 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
+                        <h2 className="text-3xl font-black uppercase">checking mind...</h2>
+                        <p className="font-bold text-center mt-2">don't laugh...</p>
+                    </div>
+                 </div>
              ) : (
                 <>
                     <div className="w-20 h-20 bg-[#fde047] rounded-full border-[4px] border-black flex items-center justify-center animate-spin mb-6 dark:border-white">
@@ -1060,16 +1187,17 @@ const App: React.FC = () => {
              )}
           </div>
         )}
-
-        {appState === AppState.READY_TO_ANALYZE && activeTab === 'RATER' && thumbnailSrc && (
+        
+        {/* ... [RATER UI Components] ... */}
+        {appState === AppState.READY_TO_ANALYZE && (activeTab === 'RATER' || activeTab === 'DIRTY_TESTER') && thumbnailSrc && (
           <div className="max-w-4xl mx-auto animate-slide-up">
              <div className="bg-white border-[3px] border-black p-6 hard-shadow mb-8 relative dark:bg-zinc-800 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
                 <Tape className="-top-3 -left-3 rotate-[-10deg]" />
                 <h2 className="text-2xl font-black uppercase mb-4 flex items-center gap-2 dark:text-white"><FileText className="w-6 h-6"/> stolen data</h2>
                 <div className="space-y-2 font-mono text-sm bg-zinc-100 p-4 border-2 border-black dark:bg-zinc-900 dark:border-white dark:text-zinc-300">
                     <p><span className="font-bold bg-black text-white px-1 dark:bg-white dark:text-black">title:</span> {isMetadataLoading ? "fetching..." : videoTitle}</p>
-                    <p><span className="font-bold bg-black text-white px-1 dark:bg-white dark:text-black">desc:</span> {isMetadataLoading ? "..." : (videoDesc ? videoDesc.substring(0, 100) + "..." : "none")}</p>
-                    <p><span className="font-bold bg-black text-white px-1 dark:bg-white dark:text-black">tags:</span> {isMetadataLoading ? "..." : (videoKeywords.length > 0 ? videoKeywords.slice(0, 5).join(", ") : "none")}</p>
+                    {activeTab === 'RATER' && <p><span className="font-bold bg-black text-white px-1 dark:bg-white dark:text-black">desc:</span> {isMetadataLoading ? "..." : (videoDesc ? videoDesc.substring(0, 100) + "..." : "none")}</p>}
+                    {activeTab === 'RATER' && <p><span className="font-bold bg-black text-white px-1 dark:bg-white dark:text-black">tags:</span> {isMetadataLoading ? "..." : (videoKeywords.length > 0 ? videoKeywords.slice(0, 5).join(", ") : "none")}</p>}
                 </div>
              </div>
 
@@ -1085,7 +1213,9 @@ const App: React.FC = () => {
                 </div>
              </div>
              <div className="flex justify-center">
-               <button onClick={handleAnalyze} className="bg-[#86efac] hover:bg-green-400 text-black text-2xl px-12 py-4 font-bold border-[3px] border-black hard-shadow transition-transform active:translate-y-1 active:shadow-none uppercase tracking-tight dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">start judgement</button>
+               <button onClick={handleAnalyze} className="bg-[#86efac] hover:bg-green-400 text-black text-2xl px-12 py-4 font-bold border-[3px] border-black hard-shadow transition-transform active:translate-y-1 active:shadow-none uppercase tracking-tight dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
+                   {activeTab === 'RATER' ? "start judgement" : "check mind"}
+               </button>
              </div>
           </div>
         )}
@@ -1207,7 +1337,8 @@ const App: React.FC = () => {
              </div>
            </div>
         )}
-
+        
+        {/* ... [BOT HUNTER UI - Same as before] ... */}
         {appState === AppState.SUCCESS && activeTab === 'BOT_HUNTER' && botResult && (
            <div className="animate-slide-up space-y-12">
                <div className="bg-white border-[3px] border-black p-8 hard-shadow text-center relative overflow-hidden dark:bg-zinc-800 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
@@ -1303,6 +1434,7 @@ const App: React.FC = () => {
            </div>
         )}
 
+        {/* ... [VIDEO CHAT UI - Same as before] ... */}
         {appState === AppState.SUCCESS && activeTab === 'VIDEO_CHAT' && videoAnalysisResult && (
             <div className="animate-slide-up space-y-8">
                 <div className="max-w-5xl mx-auto bg-black border-[4px] border-black hard-shadow relative overflow-hidden dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
@@ -1372,11 +1504,112 @@ const App: React.FC = () => {
             </div>
         )}
 
+        {appState === AppState.SUCCESS && activeTab === 'DIRTY_TESTER' && dirtyResult && (
+             <div className="animate-slide-up space-y-12">
+                 <div className="bg-white border-[3px] border-black p-8 hard-shadow text-center relative overflow-hidden dark:bg-zinc-800 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
+                     <div className={clsx(
+                         "absolute top-0 left-0 w-full h-4",
+                         dirtyResult.verdict === 'PURE' ? 'bg-green-500' : dirtyResult.verdict === 'SUS' ? 'bg-yellow-500' : dirtyResult.verdict === 'DOWN_BAD' ? 'bg-orange-500' : 'bg-red-600'
+                     )}></div>
+                     
+                     <div className="mx-auto max-w-lg mb-6 p-4 bg-zinc-100 border-2 border-black font-mono dark:bg-zinc-900 dark:text-white dark:border-white">
+                         <span className="bg-black text-white px-1 text-xs font-bold uppercase mr-2 dark:bg-white dark:text-black">Title:</span>
+                         <span className="font-bold">{videoTitle || "Unknown"}</span>
+                     </div>
+
+                     {thumbnailSrc && (
+                         <div className="mx-auto w-64 aspect-video mb-6 border-2 border-black overflow-hidden relative rotate-1">
+                             <img src={thumbnailSrc} className="w-full h-full object-cover" />
+                             <Tape className="-top-3 left-1/2 -translate-x-1/2"/>
+                         </div>
+                     )}
+                     
+                     <div className="inline-block relative">
+                         <div className={clsx(
+                             "text-8xl font-black px-8 py-4 border-[6px] border-black rotate-[-2deg] shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:border-white dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)]",
+                             dirtyResult.verdict === 'PURE' ? 'bg-[#86efac] text-black' : dirtyResult.verdict === 'SUS' ? 'bg-[#fde047] text-black' : dirtyResult.verdict === 'DOWN_BAD' ? 'bg-orange-400 text-black' : 'bg-[#ef4444] text-white'
+                         )}>
+                             {dirtyResult.verdict}
+                         </div>
+                         <div className="mt-4 font-mono font-bold text-lg dark:text-white">dirty meter: {dirtyResult.dirtyScore}%</div>
+                     </div>
+                     
+                     <div className="mt-12 text-left bg-zinc-50 border-2 border-black p-6 dark:bg-zinc-900 dark:border-white dark:text-white">
+                         <h3 className="font-black uppercase text-xl mb-4 border-b-2 border-black pb-2 flex gap-2 items-center dark:border-white">
+                             <Brain className="w-6 h-6 text-orange-600"/> analysis
+                         </h3>
+                         <p className="font-bold text-lg mb-6">"{dirtyResult.explanation}"</p>
+                         
+                         <h4 className="font-bold uppercase text-sm mb-2 text-zinc-500 dark:text-zinc-400">alternatives vs reality:</h4>
+                         <ul className="space-y-2 list-disc pl-5">
+                             {dirtyResult.alternatives?.map((e, i) => (
+                                 <li key={i} className="font-medium">{e}</li>
+                             ))}
+                         </ul>
+                     </div>
+                 </div>
+                 
+                 <div className="flex justify-center gap-4">
+                   <button onClick={() => setShowSaveModal(true)} className="flex items-center gap-2 bg-zinc-200 hover:bg-zinc-300 text-black px-6 py-3 font-bold border-[3px] border-black hard-shadow-sm active:translate-y-0.5 active:shadow-none transition-all uppercase dark:bg-zinc-700 dark:text-white dark:border-white dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
+                       <Download className="w-5 h-5" /> archive result
+                   </button>
+                   <button onClick={resetAnalysis} className="flex items-center gap-2 bg-white hover:bg-zinc-100 text-black px-6 py-3 font-bold border-[3px] border-black hard-shadow-sm active:translate-y-0.5 active:shadow-none transition-all uppercase dark:bg-zinc-800 dark:text-white dark:border-white dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
+                       <Trash2 className="w-5 h-5" /> try another
+                   </button>
+                 </div>
+
+                 {/* CHAT ROOM DIRTY */}
+                 <div className="max-w-3xl mx-auto bg-white border-[3px] border-black hard-shadow flex flex-col h-[500px] relative dark:bg-zinc-800 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
+                    <div className="bg-orange-400 border-b-[3px] border-black p-3 flex items-center gap-2 dark:border-white">
+                       <MessageSquare className="w-6 h-6 text-black fill-white" />
+                       <h3 className="font-black text-xl text-black uppercase tracking-wider drop-shadow-md">the gutter</h3>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-zinc-50 dark:bg-zinc-900/50">
+                       {chatHistory.map((msg, idx) => (
+                          <div key={idx} className={clsx("flex gap-3", msg.role === 'user' ? "flex-row-reverse" : "")}>
+                             {msg.role === 'model' && <RiceDroidAvatar />}
+                             <div className={clsx(
+                               "p-3 max-w-[80%] font-bold text-sm border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]",
+                               msg.role === 'user' ? "bg-white text-black rounded-tl-xl rounded-bl-xl rounded-br-xl dark:bg-zinc-200" : "bg-orange-200 text-black rounded-tr-xl rounded-br-xl rounded-bl-xl"
+                             )}>
+                                {msg.text}
+                             </div>
+                          </div>
+                       ))}
+                       {isChatLoading && (
+                          <div className="flex gap-3">
+                             <RiceDroidAvatar />
+                             <div className="bg-zinc-200 p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl border-2 border-black animate-pulse flex gap-1">
+                                <div className="w-2 h-2 bg-black rounded-full animate-bounce"></div>
+                                <div className="w-2 h-2 bg-black rounded-full animate-bounce delay-100"></div>
+                                <div className="w-2 h-2 bg-black rounded-full animate-bounce delay-200"></div>
+                             </div>
+                          </div>
+                       )}
+                       <div ref={chatEndRef} />
+                    </div>
+                    <div className="p-3 bg-zinc-100 border-t-[3px] border-black flex gap-2 dark:bg-zinc-800 dark:border-white">
+                       <input 
+                         type="text" 
+                         className="flex-1 bg-white border-2 border-black px-3 py-2 font-bold outline-none focus:bg-orange-50 dark:bg-zinc-700 dark:border-zinc-500 dark:text-white"
+                         placeholder="say something..."
+                         value={chatInput}
+                         onChange={(e) => setChatInput(e.target.value)}
+                         onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                       />
+                       <button onClick={handleSendMessage} disabled={isChatLoading} className="bg-black text-white p-2 hover:bg-zinc-800 border-2 border-transparent disabled:opacity-50 dark:bg-white dark:text-black">
+                          <Send className="w-5 h-5" />
+                       </button>
+                    </div>
+                 </div>
+             </div>
+        )}
+
       </main>
 
       <footer className="absolute bottom-4 w-full text-center font-bold text-xs pointer-events-none">
          <button onClick={() => setShowChangelog(true)} className="pointer-events-auto bg-white border-2 border-black px-3 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-y-[2px] transition-all uppercase dark:bg-zinc-800 dark:text-white dark:border-white dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]">
-           v2.29 changelog
+           v2.32 changelog
          </button>
          <p className="mt-2 opacity-50 bg-white/50 inline-block px-1 dark:text-white dark:bg-zinc-900/50">built with hate & love</p>
       </footer>

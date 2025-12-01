@@ -22,6 +22,13 @@ export interface BotAnalysisResult {
   summary: string;
 }
 
+export interface DirtyAnalysisResult {
+  dirtyScore: number; // 0-100
+  verdict: 'PURE' | 'SUS' | 'DOWN_BAD' | 'JAIL';
+  explanation: string;
+  alternatives: string[]; // Innocent meanings vs Dirty meanings
+}
+
 export interface VideoAnalysisResult {
   videoId: string;
   summary: string; // Initial AI analysis of the video topic
@@ -56,7 +63,7 @@ export interface ChangelogEntry {
   changes: string[];
 }
 
-export type SavedItemType = 'THUMB_RATER' | 'BOT_HUNTER' | 'VIDEO_CHAT';
+export type SavedItemType = 'THUMB_RATER' | 'BOT_HUNTER' | 'VIDEO_CHAT' | 'DIRTY_TESTER';
 
 export interface SavedItem {
   id: string;
@@ -73,6 +80,9 @@ export interface SavedItem {
   channelDetails?: any;
   // Video Chat Data
   videoResult?: VideoAnalysisResult;
+  // Dirty Tester Data
+  dirtyResult?: DirtyAnalysisResult;
+  dirtyInput?: string; // Text or Base64
 }
 
 export type RiceTubeCategory = 'HOME' | 'TRENDING' | 'GAMING' | 'TECH' | 'MUSIC' | 'SUS';

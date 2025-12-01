@@ -1,5 +1,6 @@
+
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
-import { AnalysisResult, ChatMessage, BotAnalysisResult, VideoAnalysisResult, ChannelDetails, SearchResult, VideoMetadata } from '../types';
+import { AnalysisResult, ChatMessage, BotAnalysisResult, VideoAnalysisResult, ChannelDetails, SearchResult, VideoMetadata, DirtyAnalysisResult } from '../types';
 
 const getAiClient = () => {
   const userKey = localStorage.getItem('ricetool_api_key');
@@ -192,13 +193,14 @@ export const analyzeVideoContext = async (
 };
 
 export interface ChatContext {
-  type: 'RATER' | 'BOT_HUNTER' | 'VIDEO_CHAT';
+  type: 'RATER' | 'BOT_HUNTER' | 'VIDEO_CHAT' | 'DIRTY_TESTER';
   imageBase64?: string | null;
   raterResult?: AnalysisResult | null;
   botResult?: BotAnalysisResult | null;
   channelDetails?: ChannelDetails | null;
   videoResult?: VideoAnalysisResult | null;
   videoMetadata?: VideoMetadata | null;
+  dirtyResult?: DirtyAnalysisResult | null;
 }
 
 export const sendChatMessage = async (
@@ -283,6 +285,17 @@ export const sendChatMessage = async (
       initialUserParts = [
           { text: vidContext }
       ];
+  } else if (context.type === 'DIRTY_TESTER' && context.dirtyResult) {
+      systemPromptText = "You are an immature teenager who finds 'that's what she said' jokes in everything.";
+      const dirtyContext = `
+        We are analyzing a thumbnail and title for 'Dirty Mind' potential.
+        
+        Verdict: ${context.dirtyResult.verdict} (${context.dirtyResult.dirtyScore}% Dirty)
+        Explanation: ${context.dirtyResult.explanation}
+        
+        User Input: "${sanitizeString(newMessage)}"
+      `;
+      initialUserParts = [{ text: dirtyContext }];
   }
 
   if (history.length === 0) {
@@ -306,6 +319,9 @@ export const sendChatMessage = async (
        contents.push({ role: 'user', parts: [{ text: contextMsg }]});
     } else if (context.type === 'VIDEO_CHAT' && context.videoMetadata) {
         contextMsg = `Recall: Discussing video "${sanitizeString(context.videoMetadata.title)}".`;
+        contents.push({ role: 'user', parts: [{ text: contextMsg }]});
+    } else if (context.type === 'DIRTY_TESTER') {
+        contextMsg = `Recall: Dirty mind analysis. Score: ${context.dirtyResult?.dirtyScore}`;
         contents.push({ role: 'user', parts: [{ text: contextMsg }]});
     }
 
@@ -410,6 +426,68 @@ export const analyzeBotProbability = async (
     return JSON.parse(cleanJsonString(response.text)) as BotAnalysisResult;
   } catch (e) {
     console.error("Bot analysis failed", e);
+    throw e;
+  }
+};
+
+export const analyzeDirtyMind = async (
+  imageBase64: string,
+  title: string
+): Promise<DirtyAnalysisResult> => {
+  const modelId = "gemini-2.5-flash";
+  const ai = getAiClient();
+
+  const prompt = `
+    You are a Dirty Mind Detector. Your job is to analyze the combination of this YouTube Thumbnail and Video Title for double entendres, visual ambiguity, and "sus" baiting.
+    
+    CONTEXT:
+    Title: "${sanitizeString(title)}"
+    
+    TASK:
+    Rate how "Dirty" or "Sus" this thumbnail/title combo is. Creators often use innocent images with ambiguous titles (or vice versa) to trick dirty minds.
+    
+    SCORING (0-100):
+    0 = Completely Innocent / Pure / Wholesome
+    50 = Ambiguous / "Sus" if you squint / Clickbait Bait
+    100 = Down Bad / Explicitly implied / "They knew what they were doing"
+    
+    VERDICT:
+    - PURE (0-20)
+    - SUS (21-60)
+    - DOWN_BAD (61-90)
+    - JAIL (91-100)
+    
+    Provide an explanation of WHY it's dirty (or why it's innocent).
+    Provide innocent alternatives vs what a dirty mind sees.
+  `;
+
+  try {
+    const response = (await withTimeout(ai.models.generateContent({
+      model: modelId,
+      contents: {
+        parts: [
+          { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } },
+          { text: prompt }
+        ]
+      },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            dirtyScore: { type: Type.NUMBER },
+            verdict: { type: Type.STRING, enum: ['PURE', 'SUS', 'DOWN_BAD', 'JAIL'] },
+            explanation: { type: Type.STRING },
+            alternatives: { type: Type.ARRAY, items: { type: Type.STRING } }
+          }
+        }
+      }
+    }))) as GenerateContentResponse;
+    
+    if (!response.text) throw new Error("No response");
+    return JSON.parse(cleanJsonString(response.text)) as DirtyAnalysisResult;
+  } catch (e) {
+    console.error("Dirty analysis failed", e);
     throw e;
   }
 };

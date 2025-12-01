@@ -1,20 +1,10 @@
-
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { AnalysisResult, ChatMessage, BotAnalysisResult, VideoAnalysisResult, ChannelDetails, SearchResult, VideoMetadata, DirtyAnalysisResult } from '../types';
 
 const getAiClient = () => {
-  const userKey = localStorage.getItem('ricetool_api_key');
-  let envKey = undefined;
-  try {
-    // Safely check for process.env to avoid ReferenceError in browser
-    if (typeof process !== 'undefined' && process.env) {
-      envKey = process.env.API_KEY;
-    }
-  } catch (e) {
-    // process is not defined, ignore
-  }
-  const apiKey = userKey || envKey || "AIzaSyDVcFhERQvxsfbVsjYZSFqW--Kwj2-PMK8";
-  return new GoogleGenAI({ apiKey });
+  // Fixed: 'env' does not exist on type 'ImportMeta'.
+  // Guideline: API key must be obtained exclusively from process.env.API_KEY.
+  return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
 const cleanJsonString = (str: string): string => {

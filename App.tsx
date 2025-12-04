@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { extractVideoId, blobToBase64, fetchVideoMetadata, searchYouTubeVideos, fetchChannelVideos, fetchChannelDetails, extractChannelId, fetchExploreFeed } from './utils/youtube';
-import { analyzeThumbnail, sendChatMessage, analyzeBotProbability, analyzeVideoContext, analyzeDirtyMind } from './services/geminiService';
-import { AppState, AnalysisResult, ChatMessage, ChangelogEntry, BotAnalysisResult, SavedItem, VideoAnalysisResult, RiceTubeCategory, SearchResult, ChannelDetails, VideoMetadata, DirtyAnalysisResult } from './types';
+import { extractVideoId, blobToBase64, fetchVideoMetadata, searchYouTubeVideos, fetchChannelVideos, fetchChannelDetails, extractChannelId, fetchExploreFeed, extractTweetId } from './utils/youtube';
+import { analyzeThumbnail, sendChatMessage, analyzeBotProbability, analyzeDirtyMind, analyzeXPost } from './services/geminiService';
+import { AppState, AnalysisResult, ChatMessage, ChangelogEntry, BotAnalysisResult, SavedItem, RiceTubeCategory, SearchResult, ChannelDetails, VideoMetadata, DirtyAnalysisResult, XAnalysisResult } from './types';
 import { ScoreCard } from './components/ScoreCard';
 import { 
   Youtube, Search, CircleAlert, Loader2, Send, X, 
@@ -9,35 +9,67 @@ import {
   ShoppingBag, Check, Hammer, Settings, Key, MonitorPlay, Eye, 
   EyeOff, ArrowLeft, Link2, HelpCircle, Flame, 
   Home, Gamepad2, Music2, Cpu, Play, FileText, Download, MessageSquare, Megaphone,
-  RotateCw, RefreshCcw, Lock, Unlock, Brain, FlaskConical
+  RotateCw, RefreshCcw, Lock, Unlock, Brain, FlaskConical, Twitter,
+  ShieldCheck, ShieldAlert, Sofa, Ghost
 } from 'lucide-react';
 import clsx from 'clsx';
 import { AnalysisChart } from './components/AnalysisChart';
 
 const CHANGELOG_DATA: ChangelogEntry[] = [
   {
-      version: "v2.31",
-      date: "2025-12-21",
-      title: "the tape update",
+      version: "v2.54",
+      date: "2025-12-31",
+      title: "The De-Bar Update",
       changes: [
-          "beta badges now look like tape.",
-          "dirty tester now supports channel links.",
-          "fixed input placeholders."
+          "Removed unsightly black bars (footer border, custom scrollbar).",
+          "Cleaned up UI visual noise.",
+          "Updated browser theme color."
       ]
   },
   {
-      version: "v2.30",
-      date: "2025-12-20",
-      title: "the down bad update",
+      version: "v2.53",
+      date: "2025-12-31",
+      title: "The Anonymous Update",
       changes: [
-          "added dirty minded tester (beta).",
-          "added beta badge to ask video.",
-          "optimized prompts for gen z."
+          "Lazy Mode is now Anonymous Watch Mode.",
+          "Deprecated AI chat in Lazy Mode (it was hallucinating anyway).",
+          "Watch videos without being tracked by the algorithm."
+      ]
+  },
+  {
+      version: "v2.52",
+      date: "2025-12-30",
+      title: "The Lazy Update",
+      changes: [
+          "Removed 'Ask Video' and replaced it by 'Stop being a lazy ass and go watch it yourself'.",
+          "Dirty Tester: Now smarter at distinguishing innocent vegetables from sus bait.",
+          "Improved research logic (less hallucination)."
+      ]
+  },
+  {
+      version: "v2.51",
+      date: "2025-12-29",
+      title: "The Context Update",
+      changes: [
+          "Ask Video now researches web context instead of hallucinating.",
+          "Dirty Tester logic improved: now detects innocent vs bait.",
+          "UI tweaks for clarity."
+      ]
+  },
+  {
+      version: "v2.50",
+      date: "2025-12-28",
+      title: "The Potato Update",
+      changes: [
+          "Rebranded to PotatoTool.",
+          "UI is now mobile responsive.",
+          "RiceTube became TaterTube.",
+          "New PotatoBot persona."
       ]
   }
 ];
 
-type ActiveTab = 'RATER' | 'BOT_HUNTER' | 'VIDEO_CHAT' | 'DIRTY_TESTER';
+type ActiveTab = 'RATER' | 'BOT_HUNTER' | 'VIDEO_CHAT' | 'DIRTY_TESTER' | 'X_RATER';
 type StoreView = 'SEARCH' | 'CHANNEL';
 
 const SmashLogo = () => (
@@ -48,7 +80,7 @@ const SmashLogo = () => (
         </div>
         <Hammer className="absolute -top-3 -right-3 w-8 h-8 text-black fill-zinc-300 drop-shadow-sm transition-transform duration-100 origin-bottom-left group-hover:rotate-[-45deg] z-10 dark:text-white dark:fill-zinc-600" />
         <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase text-black opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-yellow-300 px-1 border border-black rotate-[-5deg] font-sans">
-           bonk!
+           BONK!
         </div>
     </div>
 );
@@ -58,14 +90,14 @@ const Tape = ({ className }: { className?: string }) => (
 );
 
 const BetaTape = () => (
-    <span className="absolute -top-3 -right-4 bg-[#fde047] text-black text-[9px] font-black px-2 py-0.5 border border-black rotate-[-10deg] shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] z-10 dark:border-white dark:shadow-[1px_1px_0px_0px_rgba(255,255,255,1)]">
+    <span className="absolute -top-3 -right-3 md:-right-4 bg-[#fde047] text-black text-[8px] md:text-[9px] font-black px-1.5 md:px-2 py-0.5 border border-black rotate-[-10deg] shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] z-10 dark:border-white dark:shadow-[1px_1px_0px_0px_rgba(255,255,255,1)] pointer-events-none">
         BETA
     </span>
 );
 
-const RiceDroidAvatar = () => (
+const PotatoBotAvatar = () => (
     <div className="w-10 h-10 rounded-full border-[3px] border-black overflow-hidden bg-white shrink-0 hard-shadow-sm dark:border-white dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
-        <img src="https://i.imgur.com/gL1bk4m.png" alt="RiceDroid" className="w-full h-full object-cover scale-110" />
+        <img src="https://i.imgur.com/gL1bk4m.png" alt="PotatoBot" className="w-full h-full object-cover" />
     </div>
 );
 
@@ -86,7 +118,7 @@ const App: React.FC = () => {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
-  // RiceTube State
+  // RiceTube (Now TaterTube) State
   const [showRiceTube, setShowRiceTube] = useState(false);
   const [rtView, setRtView] = useState<StoreView>('SEARCH');
   const [rtCategory, setRtCategory] = useState<RiceTubeCategory>('HOME');
@@ -106,12 +138,14 @@ const App: React.FC = () => {
   const [botResult, setBotResult] = useState<BotAnalysisResult | null>(null);
   const [analyzingChannel, setAnalyzingChannel] = useState<ChannelDetails | null>(null);
 
-  const [videoAnalysisResult, setVideoAnalysisResult] = useState<VideoAnalysisResult | null>(null);
   const [currentVideoMetadata, setCurrentVideoMetadata] = useState<VideoMetadata | null>(null);
   const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
 
   const [dirtyResult, setDirtyResult] = useState<DirtyAnalysisResult | null>(null);
   const [dirtyInput, setDirtyInput] = useState<string>('');
+
+  const [xResult, setXResult] = useState<XAnalysisResult | null>(null);
+  const [xUrl, setXUrl] = useState<string>('');
   
   const [showImageWarning, setShowImageWarning] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
@@ -145,15 +179,15 @@ const App: React.FC = () => {
       const storedItems = localStorage.getItem('thumb_rate_saved');
       if (storedItems) setSavedItems(JSON.parse(storedItems));
       
-      const storedKey = localStorage.getItem('ricetool_api_key');
+      const storedKey = localStorage.getItem('potatotool_api_key');
       if (storedKey) setApiKeyInput(storedKey);
     } catch (e) { console.error(e); }
   }, []);
 
   const handleSaveSettings = () => {
-      localStorage.setItem('ricetool_api_key', apiKeyInput);
+      localStorage.setItem('potatotool_api_key', apiKeyInput);
       setShowSettings(false);
-      alert("settings saved.");
+      alert("Settings saved.");
   };
 
   const toggleDarkMode = () => {
@@ -165,7 +199,7 @@ const App: React.FC = () => {
     }
   };
 
-  // RiceTube Functions
+  // TaterTube Functions
   const openRiceTube = () => {
       setShowRiceTube(true);
       if (rtResults.length === 0) loadRiceTubeCategory('HOME');
@@ -246,7 +280,7 @@ const App: React.FC = () => {
           setIsSusUnlocked(true);
           loadRiceTubeCategory('SUS');
       } else {
-          alert("wrong code. are you a robot?");
+          alert("Wrong code. Are you a robot?");
           setSusCaptchaString(generateCaptcha());
           setSusCaptchaInput('');
       }
@@ -268,10 +302,11 @@ const App: React.FC = () => {
     setResult(null);
     setBotResult(null);
     setAnalyzingChannel(null);
-    setVideoAnalysisResult(null);
     setCurrentVideoMetadata(null);
     setActiveVideoId(null);
     setDirtyResult(null);
+    setXResult(null);
+    setXUrl('');
     setDirtyInput('');
     setVideoTitle(null);
     setVideoDesc(null);
@@ -322,7 +357,7 @@ const App: React.FC = () => {
       setThumbnailSrc(objectUrl);
       setAppState(AppState.READY_TO_ANALYZE);
     } catch (err) {
-      setErrorMsg("could not fetch thumbnail. the video might be private or invalid.");
+      setErrorMsg("Could not fetch thumbnail. The video might be private or invalid.");
       setAppState(AppState.ERROR);
     }
   };
@@ -348,7 +383,7 @@ const App: React.FC = () => {
           setAppState(AppState.READY_TO_ANALYZE);
 
       } catch (e) {
-          setErrorMsg("could not fetch channel details.");
+          setErrorMsg("Could not fetch channel details.");
           setAppState(AppState.ERROR);
       }
   };
@@ -369,31 +404,9 @@ const App: React.FC = () => {
       setAppState(AppState.SUCCESS);
     } catch (e) {
       console.error(e);
-      setErrorMsg("could not analyze channel. check the link.");
+      setErrorMsg("Could not analyze channel. Check the link.");
       setAppState(AppState.ERROR);
     }
-  };
-
-  const runVideoChatInit = async (videoId: string) => {
-      setAppState(AppState.ANALYZING);
-      setActiveVideoId(videoId);
-      try {
-          const meta = await fetchVideoMetadata(videoId);
-          if (!meta.title) throw new Error("Could not fetch metadata");
-          setCurrentVideoMetadata(meta);
-
-          const result = await analyzeVideoContext(meta, videoId);
-          setVideoAnalysisResult(result);
-          setAppState(AppState.SUCCESS);
-          setChatHistory([{
-              role: 'model',
-              text: `yo! i'm watching "${meta.title}" with you. ${result.summary}`
-          }]);
-      } catch (e) {
-          console.error(e);
-          setErrorMsg("could not process video. check the link.");
-          setAppState(AppState.ERROR);
-      }
   };
 
   const runDirtyAnalysis = async (imageBase64: string, title: string) => {
@@ -404,8 +417,22 @@ const App: React.FC = () => {
           setAppState(AppState.SUCCESS);
       } catch (e) {
           console.error(e);
-          setErrorMsg("analysis failed.");
+          setErrorMsg("Analysis failed.");
           setAppState(AppState.ERROR);
+      }
+  };
+
+  const runXAnalysis = async (link: string, imgBase64?: string | null) => {
+      setAppState(AppState.ANALYZING);
+      setXUrl(link);
+      try {
+          const result = await analyzeXPost(link, imgBase64);
+          setXResult(result);
+          setAppState(AppState.SUCCESS);
+      } catch (e) {
+           console.error(e);
+           setErrorMsg("Could not analyze tweet. Maybe upload a screenshot?");
+           setAppState(AppState.ERROR);
       }
   };
 
@@ -419,7 +446,7 @@ const App: React.FC = () => {
         resetAnalysis();
         fetchImageFromVideoId(videoId);
       } else {
-         setErrorMsg("invalid youtube video url.");
+         setErrorMsg("Invalid YouTube video URL.");
          setAppState(AppState.ERROR);
       }
     } else if (activeTab === 'DIRTY_TESTER') {
@@ -434,10 +461,10 @@ const App: React.FC = () => {
       } else {
           // Attempt to resolve channel if it's a handle
           if (input.includes('@') || input.includes('youtube.com/')) {
-               setErrorMsg("invalid video or channel link.");
+               setErrorMsg("Invalid video or channel link.");
                setAppState(AppState.ERROR);
           } else {
-               setErrorMsg("invalid link.");
+               setErrorMsg("Invalid link.");
                setAppState(AppState.ERROR);
           }
       }
@@ -445,9 +472,19 @@ const App: React.FC = () => {
         const videoId = extractVideoId(input);
         if (videoId) {
             resetAnalysis();
-            runVideoChatInit(videoId);
+            setActiveVideoId(videoId);
+            setAppState(AppState.SUCCESS);
         } else {
-            setErrorMsg("invalid youtube video url.");
+            setErrorMsg("Invalid YouTube video URL.");
+            setAppState(AppState.ERROR);
+        }
+    } else if (activeTab === 'X_RATER') {
+        resetAnalysis();
+        const tweetId = extractTweetId(input);
+        if (tweetId || input.includes('twitter.com') || input.includes('x.com')) {
+            runXAnalysis(input);
+        } else {
+            setErrorMsg("Invalid X/Twitter URL.");
             setAppState(AppState.ERROR);
         }
     } else {
@@ -467,7 +504,7 @@ const App: React.FC = () => {
       if (channelId) {
         runBotAnalysis(channelId);
       } else {
-        setErrorMsg("invalid channel or video link.");
+        setErrorMsg("Invalid channel or video link.");
         setAppState(AppState.ERROR);
       }
     }
@@ -494,7 +531,7 @@ const App: React.FC = () => {
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (activeTab === 'BOT_HUNTER' || activeTab === 'VIDEO_CHAT') {
-        alert("this mode requires a youtube link.");
+        alert("This mode requires a YouTube link.");
         return;
     }
     const file = e.target.files?.[0];
@@ -509,29 +546,36 @@ const App: React.FC = () => {
       setImageBase64(base64);
       setVideoTitle("Uploaded Image"); 
       
-      if (activeTab === 'DIRTY_TESTER') {
+      if (activeTab === 'DIRTY_TESTER' || activeTab === 'X_RATER') {
           setAppState(AppState.READY_TO_ANALYZE);
       } else {
           setShowImageWarning(true);
           setAppState(AppState.READY_TO_ANALYZE);
       }
     } catch (err) {
-      setErrorMsg("failed to process file.");
+      setErrorMsg("Failed to process file.");
       setAppState(AppState.ERROR);
     }
   };
 
   const handleAnalyze = async () => {
-    if (!imageBase64) return;
+    if (!imageBase64 && activeTab !== 'X_RATER') return;
     
     if (activeTab === 'DIRTY_TESTER') {
+        if (!imageBase64) return;
         runDirtyAnalysis(imageBase64, videoTitle || "Unknown Title");
+        return;
+    }
+
+    if (activeTab === 'X_RATER') {
+        runXAnalysis(url || "Uploaded Image", imageBase64);
         return;
     }
 
     setAppState(AppState.ANALYZING);
     setShowSusContent(false);
     try {
+      if (!imageBase64) throw new Error("No image");
       const data = await analyzeThumbnail(imageBase64, 'image/jpeg', {
           title: videoTitle,
           description: videoDesc,
@@ -540,7 +584,7 @@ const App: React.FC = () => {
       setResult(data);
       setAppState(AppState.SUCCESS);
     } catch (err) {
-      setErrorMsg("analysis failed. please try again.");
+      setErrorMsg("Analysis failed. Please try again.");
       setAppState(AppState.ERROR);
     }
   };
@@ -550,8 +594,9 @@ const App: React.FC = () => {
 
     if (activeTab === 'RATER' && (!imageBase64 || !result)) return;
     if (activeTab === 'BOT_HUNTER' && (!botResult || !analyzingChannel)) return;
-    if (activeTab === 'VIDEO_CHAT' && (!videoAnalysisResult || !currentVideoMetadata)) return;
+    if (activeTab === 'VIDEO_CHAT') return; // Chat disabled in video chat
     if (activeTab === 'DIRTY_TESTER' && !dirtyResult) return;
+    if (activeTab === 'X_RATER' && !xResult) return;
 
     const userMsg = chatInput;
     setChatInput('');
@@ -565,13 +610,15 @@ const App: React.FC = () => {
           raterResult: result,
           botResult: botResult,
           channelDetails: analyzingChannel,
-          videoResult: videoAnalysisResult,
+          videoResult: null,
           videoMetadata: (activeTab === 'RATER' || activeTab === 'DIRTY_TESTER') ? { title: videoTitle, description: videoDesc, keywords: videoKeywords } : currentVideoMetadata,
-          dirtyResult: dirtyResult
+          dirtyResult: dirtyResult,
+          xResult: xResult,
+          xUrl: xUrl
       });
       setChatHistory(prev => [...prev, { role: 'model', text: aiResponse }]);
     } catch (error) {
-      setChatHistory(prev => [...prev, { role: 'model', text: "connection error." }]);
+      setChatHistory(prev => [...prev, { role: 'model', text: "Connection error." }]);
     } finally {
       setIsChatLoading(false);
     }
@@ -581,17 +628,18 @@ const App: React.FC = () => {
       if (activeTab === 'RATER' && result && imageBase64) return { id: crypto.randomUUID(), date: new Date().toISOString(), type: 'THUMB_RATER', thumbnailBase64: imageBase64, thumbnailResult: result, videoTitle, videoDesc, videoKeywords };
       if (activeTab === 'BOT_HUNTER' && botResult && analyzingChannel) return { id: crypto.randomUUID(), date: new Date().toISOString(), type: 'BOT_HUNTER', botResult, channelDetails: analyzingChannel };
       if (activeTab === 'DIRTY_TESTER' && dirtyResult && imageBase64) return { id: crypto.randomUUID(), date: new Date().toISOString(), type: 'DIRTY_TESTER', dirtyResult, thumbnailBase64: imageBase64, videoTitle };
+      if (activeTab === 'X_RATER' && xResult) return { id: crypto.randomUUID(), date: new Date().toISOString(), type: 'X_RATER', xResult, xUrl, thumbnailBase64: imageBase64 || undefined };
       return null;
   };
 
   const handleSaveToApp = () => {
     const item = prepareSaveItem();
-    if (!item) { alert("saving not supported yet."); return; }
+    if (!item) { alert("Saving not supported yet."); return; }
     const newItems = [item, ...savedItems];
     setSavedItems(newItems);
     localStorage.setItem('thumb_rate_saved', JSON.stringify(newItems));
     setShowSaveModal(false);
-    alert("saved to vault.");
+    alert("Saved to Vault.");
   };
 
   const handleDownloadJSON = () => {
@@ -601,7 +649,7 @@ const App: React.FC = () => {
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(item));
       const downloadAnchorNode = document.createElement('a');
       downloadAnchorNode.setAttribute("href", dataStr);
-      downloadAnchorNode.setAttribute("download", `ricetool_${item.type}_${item.id.substring(0,8)}.json`);
+      downloadAnchorNode.setAttribute("download", `potatotool_${item.type}_${item.id.substring(0,8)}.json`);
       document.body.appendChild(downloadAnchorNode);
       downloadAnchorNode.click();
       downloadAnchorNode.remove();
@@ -622,7 +670,7 @@ const App: React.FC = () => {
       try {
         const item = JSON.parse(event.target?.result as string) as SavedItem;
         loadSavedItem(item);
-      } catch (err) { alert("invalid json file."); }
+      } catch (err) { alert("Invalid JSON file."); }
     };
     reader.readAsText(file);
     if (importInputRef.current) importInputRef.current.value = '';
@@ -652,6 +700,15 @@ const App: React.FC = () => {
         setVideoTitle(item.videoTitle || "Unknown");
         setDirtyResult(item.dirtyResult!);
         setAppState(AppState.SUCCESS);
+    } else if (item.type === 'X_RATER') {
+        setActiveTab('X_RATER');
+        setXUrl(item.xUrl || "");
+        if (item.thumbnailBase64) {
+            setImageBase64(item.thumbnailBase64);
+            setThumbnailSrc(`data:image/jpeg;base64,${item.thumbnailBase64}`);
+        }
+        setXResult(item.xResult!);
+        setAppState(AppState.SUCCESS);
     }
   };
 
@@ -659,17 +716,29 @@ const App: React.FC = () => {
       setShowReporting(true);
       setTimeout(() => {
           setShowReporting(false);
-          alert("channel reported to the internet police.");
+          alert("Channel reported to the internet police.");
       }, 3000);
   };
 
+  // Helper to get active tab color
+  const getActiveTabColor = () => {
+      switch(activeTab) {
+          case 'RATER': return 'bg-pink-400 text-black';
+          case 'BOT_HUNTER': return 'bg-blue-400 text-black';
+          case 'VIDEO_CHAT': return 'bg-zinc-400 text-black';
+          case 'DIRTY_TESTER': return 'bg-yellow-400 text-black';
+          case 'X_RATER': return 'bg-black text-white dark:bg-white dark:text-black';
+          default: return 'bg-black text-white';
+      }
+  };
+
   return (
-    <div className="min-h-screen bg-bliss text-black font-sans pb-20 relative overflow-hidden dark:bg-zinc-900">
-      {/* ... [RiceTube Modal Component] ... */}
+    <div className="min-h-screen bg-bliss text-black font-sans pb-20 relative overflow-x-hidden dark:bg-zinc-900 w-full">
+      {/* ... [TaterTube Modal Component] ... */}
       {showRiceTube && (
-          <div className="fixed inset-0 z-[200] bg-zinc-900 font-sans text-white flex flex-col">
-              <div className="h-16 bg-[#202020] flex items-center justify-between px-4 border-b border-zinc-700 shrink-0">
-                  <div className="flex items-center gap-4">
+          <div className="fixed inset-0 z-[200] bg-zinc-900 font-sans text-white flex flex-col w-full h-full">
+              <div className="h-16 bg-[#202020] flex items-center justify-between px-2 md:px-4 border-b border-zinc-700 shrink-0 gap-2">
+                  <div className="flex items-center gap-2 md:gap-4">
                       <button onClick={() => setShowRiceTube(false)} className="p-2 hover:bg-zinc-700 rounded-full">
                           <ArrowLeft className="w-6 h-6" />
                       </button>
@@ -677,925 +746,857 @@ const App: React.FC = () => {
                           <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center">
                               <Play className="w-5 h-5 text-white fill-white" />
                           </div>
-                          <span className="font-bold text-xl tracking-tighter">ricetube™</span>
+                          <span className="font-bold tracking-tighter text-xl hidden md:block">TaterTube™</span>
                       </div>
                   </div>
-                  <div className="flex-1 max-w-2xl mx-8">
-                      <div className="flex bg-[#121212] border border-zinc-700 rounded-full overflow-hidden">
+                  
+                  <div className="flex-1 max-w-xl mx-2">
+                      <div className="relative flex items-center">
                           <input 
-                             type="text" 
-                             className="flex-1 bg-transparent px-4 py-2 outline-none"
-                             placeholder="search the riceverse..."
-                             value={rtQuery}
-                             onChange={(e) => setRtQuery(e.target.value)}
-                             onKeyDown={(e) => e.key === 'Enter' && handleRiceTubeSearch()}
+                              type="text"
+                              value={rtQuery}
+                              onChange={(e) => setRtQuery(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && handleRiceTubeSearch()}
+                              placeholder="Search TaterTube..."
+                              className="w-full bg-[#121212] border border-zinc-700 rounded-full py-2 pl-4 pr-10 text-white focus:outline-none focus:border-blue-500 text-base"
                           />
-                          <button onClick={handleRiceTubeSearch} className="px-6 bg-zinc-800 hover:bg-zinc-700 border-l border-zinc-700">
-                              <Search className="w-5 h-5" />
+                          <button onClick={handleRiceTubeSearch} className="absolute right-0 top-0 h-full px-4 bg-zinc-800 rounded-r-full border-l border-zinc-700 hover:bg-zinc-700">
+                              <Search className="w-5 h-5 text-zinc-400" />
                           </button>
                       </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                      <button onClick={refreshRiceTube} className="p-2 hover:bg-zinc-700 rounded-full text-zinc-400 hover:text-white" title="refresh">
-                         <RotateCw className={clsx("w-6 h-6", rtIsLoading && "animate-spin")} />
-                      </button>
-                      <div className={clsx("flex items-center gap-2 px-3 py-1 rounded-full border", isSusUnlocked ? "bg-red-900/50 border-red-500 text-red-200" : "bg-[#303030] border-zinc-600")}>
-                         {isSusUnlocked ? <Unlock className="w-3 h-3"/> : <Lock className="w-3 h-3 text-zinc-400"/>}
-                         <span className="text-xs font-bold text-zinc-400">{isSusUnlocked ? "SafeSearch: OFF" : "locked"}</span>
-                      </div>
-                  </div>
+
+                  <div className="w-10"></div>
               </div>
 
-              <div className="flex flex-1 overflow-hidden">
-                  <div className="w-64 bg-[#202020] border-r border-zinc-700 flex flex-col p-4 space-y-2 shrink-0 overflow-y-auto">
-                      <button onClick={() => loadRiceTubeCategory('HOME')} className={clsx("flex items-center gap-4 p-3 rounded-xl font-bold transition-colors", rtCategory === 'HOME' ? "bg-red-600 text-white" : "hover:bg-zinc-700")}>
-                          <Home className="w-5 h-5" /> home
-                      </button>
-                      <button onClick={() => loadRiceTubeCategory('TRENDING')} className={clsx("flex items-center gap-4 p-3 rounded-xl font-bold transition-colors", rtCategory === 'TRENDING' ? "bg-red-600 text-white" : "hover:bg-zinc-700")}>
-                          <Flame className="w-5 h-5" /> trending
-                      </button>
-                      <button onClick={() => loadRiceTubeCategory('GAMING')} className={clsx("flex items-center gap-4 p-3 rounded-xl font-bold transition-colors", rtCategory === 'GAMING' ? "bg-red-600 text-white" : "hover:bg-zinc-700")}>
-                          <Gamepad2 className="w-5 h-5" /> gaming
-                      </button>
-                      <button onClick={() => loadRiceTubeCategory('TECH')} className={clsx("flex items-center gap-4 p-3 rounded-xl font-bold transition-colors", rtCategory === 'TECH' ? "bg-red-600 text-white" : "hover:bg-zinc-700")}>
-                          <Cpu className="w-5 h-5" /> tech
-                      </button>
-                      <button onClick={() => loadRiceTubeCategory('MUSIC')} className={clsx("flex items-center gap-4 p-3 rounded-xl font-bold transition-colors", rtCategory === 'MUSIC' ? "bg-red-600 text-white" : "hover:bg-zinc-700")}>
-                          <Music2 className="w-5 h-5" /> music
-                      </button>
-                      <div className="border-t border-zinc-700 my-2"></div>
-                      <button onClick={() => rtCategory === 'SUS' && !isSusUnlocked ? null : loadRiceTubeCategory('SUS')} className={clsx("flex items-center gap-4 p-3 rounded-xl font-bold transition-colors", rtCategory === 'SUS' ? "bg-purple-600 text-white" : "hover:bg-zinc-700")}>
-                          <Siren className="w-5 h-5" /> the deep web (sus)
-                      </button>
-                  </div>
+              <div className="flex-1 overflow-y-auto bg-[#0f0f0f]">
+                  {rtView === 'SEARCH' ? (
+                      <>
+                        <div className="flex gap-2 p-3 overflow-x-auto no-scrollbar border-b border-zinc-800 sticky top-0 bg-[#0f0f0f]/95 backdrop-blur z-10">
+                            {['HOME', 'TRENDING', 'GAMING', 'TECH', 'MUSIC', 'SUS'].map((cat) => (
+                                <button
+                                    key={cat}
+                                    onClick={() => loadRiceTubeCategory(cat as RiceTubeCategory)}
+                                    className={clsx(
+                                        "px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors",
+                                        rtCategory === cat ? "bg-white text-black" : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                                    )}
+                                >
+                                    {cat === 'SUS' ? (isSusUnlocked ? '💀 SUS (UNLOCKED)' : '🔒 SUS') : cat}
+                                </button>
+                            ))}
+                        </div>
 
-                  <div className="flex-1 bg-[#181818] p-6 overflow-y-auto">
-                      {rtCategory === 'SUS' && !isSusUnlocked ? (
-                          <div className="flex flex-col items-center justify-center h-full">
-                              <div className="bg-zinc-800 border-2 border-red-500 p-8 rounded-xl max-w-md w-full text-center shadow-xl">
-                                  <Siren className="w-16 h-16 text-red-500 mx-auto mb-4 animate-pulse" />
-                                  <h2 className="text-2xl font-black text-red-500 mb-2 uppercase">restricted area</h2>
-                                  <p className="mb-6 font-bold text-zinc-400">complete verification to enter the deep web.</p>
-                                  
-                                  <div className="bg-black p-4 mb-4 rounded border border-zinc-600 flex items-center justify-between">
-                                      <span className="font-mono text-3xl tracking-widest text-white line-through decoration-red-500 decoration-4 select-none blur-[1px]">{susCaptchaString}</span>
-                                      <button onClick={refreshCaptcha} className="p-2 hover:bg-zinc-800 rounded text-zinc-400"><RefreshCcw className="w-5 h-5"/></button>
-                                  </div>
-                                  
-                                  <input 
-                                      type="text" 
-                                      value={susCaptchaInput}
-                                      onChange={(e) => setSusCaptchaInput(e.target.value)}
-                                      placeholder="enter code..."
-                                      className="w-full bg-zinc-900 border border-zinc-600 p-3 rounded mb-4 text-center font-bold text-xl uppercase"
-                                  />
-                                  <button onClick={handleCaptchaSubmit} className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded uppercase">
-                                      verify human
-                                  </button>
-                              </div>
-                          </div>
-                      ) : (
-                        <>
-                            {rtView === 'CHANNEL' && rtSelectedChannel && (
-                                <div className="mb-8">
-                                    <button onClick={() => setRtView('SEARCH')} className="flex items-center gap-2 mb-4 text-zinc-400 hover:text-white">
-                                        <ArrowLeft className="w-4 h-4" /> back to search
+                        {rtCategory === 'SUS' && !isSusUnlocked ? (
+                            <div className="flex flex-col items-center justify-center h-full p-8 text-center space-y-4">
+                                <Ghost className="w-16 h-16 text-zinc-500" />
+                                <h2 className="text-2xl font-bold">The Dark Side of YouTube</h2>
+                                <p className="text-zinc-400 max-w-md">Warning: This feed contains weird, obscure, and potentially unsettling content found in the depths of the algorithm.</p>
+                                <div className="bg-zinc-800 p-6 rounded-xl border border-zinc-700 space-y-4 w-full max-w-sm">
+                                    <p className="text-sm text-zinc-400">Prove you are not a bot.</p>
+                                    <div className="bg-black p-4 rounded text-center font-mono text-2xl tracking-widest text-green-500 select-none relative overflow-hidden">
+                                        <div className="absolute inset-0 bg-green-500/10 animate-pulse"></div>
+                                        {susCaptchaString}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <input 
+                                            type="text" 
+                                            value={susCaptchaInput}
+                                            onChange={(e) => setSusCaptchaInput(e.target.value)}
+                                            placeholder="Enter code"
+                                            className="flex-1 bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-white text-center uppercase text-base"
+                                        />
+                                        <button onClick={refreshCaptcha} className="p-2 bg-zinc-700 rounded hover:bg-zinc-600"><RotateCw className="w-5 h-5"/></button>
+                                    </div>
+                                    <button 
+                                        onClick={handleCaptchaSubmit}
+                                        className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg transition-colors"
+                                    >
+                                        UNLOCK
                                     </button>
-                                    <div className="flex items-center gap-6 bg-[#202020] p-6 rounded-2xl border border-zinc-700">
-                                        <img src={rtSelectedChannel.thumbnail} className="w-24 h-24 rounded-full border-2 border-white" />
-                                        <div>
-                                            <h2 className="text-3xl font-black">{rtSelectedChannel.title}</h2>
-                                            <div className="flex gap-2 mt-2">
-                                                <button onClick={(e) => handleCopy(rtSelectedChannel.id, 'channel', e)} className="px-4 py-2 bg-white text-black font-bold rounded-full hover:bg-zinc-200">
-                                                    copy link
-                                                </button>
-                                                <button onClick={() => handleRtItemClick(rtSelectedChannel)} className="px-4 py-2 bg-zinc-700 text-white font-bold rounded-full hover:bg-zinc-600">
-                                                    reload
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                {rtIsLoading ? (
+                                    Array(8).fill(0).map((_, i) => (
+                                        <div key={i} className="animate-pulse">
+                                            <div className="bg-zinc-800 aspect-video rounded-xl mb-3"></div>
+                                            <div className="flex gap-3">
+                                                <div className="w-9 h-9 bg-zinc-800 rounded-full"></div>
+                                                <div className="flex-1 space-y-2">
+                                                    <div className="h-4 bg-zinc-800 rounded w-3/4"></div>
+                                                    <div className="h-3 bg-zinc-800 rounded w-1/2"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    rtResults.map((item) => (
+                                        <div key={item.id} onClick={() => handleRtItemClick(item)} className="group cursor-pointer">
+                                            <div className="relative aspect-video rounded-xl overflow-hidden mb-2 bg-zinc-800 border border-zinc-800 group-hover:border-zinc-600 transition-colors">
+                                                <img src={item.thumbnail} alt={item.title} className="w-full h-full object-cover" />
+                                                {item.isSus && (
+                                                    <div className="absolute top-1 right-1 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded uppercase flex items-center gap-1">
+                                                        <Siren className="w-3 h-3" /> SUS
+                                                    </div>
+                                                )}
+                                                {item.type === 'channel' && (
+                                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                                        <div className="bg-zinc-800 p-2 rounded-full border border-zinc-600">
+                                                            <MonitorPlay className="w-6 h-6 text-white" />
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="flex gap-3 px-1">
+                                                <div className="flex-1">
+                                                    <h3 className="text-white font-medium text-sm line-clamp-2 leading-tight mb-1 group-hover:text-blue-400 transition-colors" dangerouslySetInnerHTML={{ __html: item.title }}></h3>
+                                                    <div className="text-zinc-400 text-xs flex items-center gap-1">
+                                                        <span>{item.channelTitle}</span>
+                                                        <Check className="w-3 h-3 bg-zinc-700 rounded-full p-0.5" />
+                                                    </div>
+                                                    {item.publishedAt && <div className="text-zinc-500 text-xs mt-0.5">{new Date(item.publishedAt).toLocaleDateString()}</div>}
+                                                </div>
+                                                <button onClick={(e) => handleCopy(item.id, item.type, e)} className="text-zinc-500 hover:text-white self-start pt-1">
+                                                    {copiedItemId === item.id ? <Check className="w-4 h-4 text-green-500" /> : <Link2 className="w-4 h-4" />}
                                                 </button>
                                             </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
+                      </>
+                  ) : (
+                      // Channel View
+                      <div className="p-4 max-w-6xl mx-auto">
+                          {rtSelectedChannel && (
+                              <>
+                                <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8 border-b border-zinc-800 pb-8">
+                                    <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-zinc-800">
+                                        <img src={rtSelectedChannel.thumbnail} className="w-full h-full object-cover" />
+                                    </div>
+                                    <div className="text-center md:text-left flex-1">
+                                        <h1 className="text-3xl font-bold mb-2">{rtSelectedChannel.channelTitle}</h1>
+                                        <p className="text-zinc-400 text-sm max-w-2xl line-clamp-3 mb-4">{rtSelectedChannel.description || "No description provided."}</p>
+                                        <div className="flex items-center justify-center md:justify-start gap-4">
+                                            <button className="bg-white text-black px-6 py-2 rounded-full font-bold text-sm hover:bg-zinc-200">Subscribe</button>
+                                            <button onClick={() => {
+                                                setShowRiceTube(false);
+                                                setActiveTab('BOT_HUNTER');
+                                                setUrl(`https://youtube.com/channel/${rtSelectedChannel.id}`);
+                                                runBotAnalysis(rtSelectedChannel.id);
+                                            }} className="bg-zinc-800 text-white px-6 py-2 rounded-full font-bold text-sm border border-zinc-700 hover:bg-zinc-700 flex items-center gap-2">
+                                                <Bot className="w-4 h-4" /> Analyze
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
-                            )}
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                {rtIsLoading ? (
-                                    <div className="col-span-full flex justify-center py-20"><Loader2 className="w-12 h-12 animate-spin" /></div>
-                                ) : rtResults.map(item => {
-                                    const isBlurred = item.isSus && !revealedItems.has(item.id);
-                                    return (
-                                        <div key={item.id} onClick={() => handleRtItemClick(item)} className="group cursor-pointer bg-[#202020] rounded-xl overflow-hidden hover:bg-[#303030] transition-colors ring-1 ring-white/10">
-                                            <div className="aspect-video bg-black relative">
-                                                <img src={item.thumbnail} className={clsx("w-full h-full object-cover", isBlurred && "blur-xl opacity-50")} />
-                                                {item.type === 'video' && (
-                                                    <span className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-1 rounded font-bold">vid</span>
-                                                )}
-                                                {isBlurred && (
-                                                    <div className="absolute inset-0 flex items-center justify-center">
-                                                        <Siren className="w-8 h-8 text-red-500 animate-pulse" />
-                                                    </div>
-                                                )}
-                                                {item.isSus && (
-                                                    <button onClick={(e) => toggleReveal(item.id, e)} className="absolute top-2 left-2 p-1 bg-black/50 hover:bg-black rounded-lg text-white">
-                                                        {isBlurred ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
-                                                    </button>
-                                                )}
-                                                <button onClick={(e) => handleCopy(item.id, item.type, e)} className="absolute bottom-2 left-2 p-1.5 bg-black/50 hover:bg-red-600 rounded-lg text-white transition-colors">
-                                                    {copiedItemId === item.id ? <Check className="w-4 h-4"/> : <Link2 className="w-4 h-4"/>}
-                                                </button>
+                                <h2 className="text-xl font-bold mb-4">Recent Videos</h2>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                    {rtResults.map((item) => (
+                                        <div key={item.id} onClick={() => handleCopy(item.id, 'video')} className="group cursor-pointer">
+                                            <div className="relative aspect-video rounded-xl overflow-hidden mb-2 bg-zinc-800 border border-zinc-800 group-hover:border-zinc-600 transition-colors">
+                                                <img src={item.thumbnail} alt={item.title} className="w-full h-full object-cover" />
                                             </div>
-                                            <div className="p-3">
-                                                <h3 className="font-bold line-clamp-2 leading-tight" dangerouslySetInnerHTML={{ __html: item.title }}></h3>
-                                                <p className="text-sm text-zinc-400 mt-1">{item.channelTitle}</p>
-                                            </div>
+                                            <h3 className="text-white font-medium text-sm line-clamp-2 leading-tight group-hover:text-blue-400 transition-colors" dangerouslySetInnerHTML={{ __html: item.title }}></h3>
+                                            <div className="text-zinc-500 text-xs mt-1">{new Date(item.publishedAt!).toLocaleDateString()}</div>
                                         </div>
-                                    );
-                                })}
-                            </div>
-                            
-                            {rtView === 'CHANNEL' && rtNextPageToken && !rtIsLoading && (
-                                <div className="flex justify-center mt-8">
-                                    <button onClick={handleLoadMore} className="bg-white text-black font-bold uppercase py-3 px-8 rounded-full hover:bg-zinc-200">
-                                        load more videos
-                                    </button>
+                                    ))}
                                 </div>
-                            )}
-                        </>
-                      )}
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {/* ... [Modals] ... */}
-      {showSettings && (
-          <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 p-4 font-sans backdrop-blur-sm">
-              <div className="bg-white max-w-md w-full border-[3px] border-black hard-shadow rotate-1 relative dark:bg-zinc-800 dark:border-white">
-                  <button onClick={() => setShowSettings(false)} className="absolute top-2 right-2 p-1 hover:bg-zinc-100 dark:hover:bg-zinc-700 dark:text-white"><X className="w-5 h-5"/></button>
-                  <div className="p-8 flex flex-col items-center text-center">
-                      <h2 className="text-2xl font-black uppercase mb-4 dark:text-white">settings</h2>
-                      <div className="w-full text-left mb-6">
-                          <label className="text-xs font-black uppercase ml-1 dark:text-white">custom api key</label>
-                          <div className="relative mt-1">
-                              <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                              <input type="text" value={apiKeyInput} onChange={(e) => setApiKeyInput(e.target.value)} placeholder="AIzaSy... (optional)" className="w-full border-2 border-black p-3 pl-10 font-mono text-sm outline-none focus:bg-yellow-50 dark:bg-zinc-900 dark:border-white dark:text-white dark:focus:bg-zinc-800"/>
-                          </div>
-                          <p className="text-[10px] font-bold text-zinc-400 mt-1">use your own key to bypass rate limits.</p>
+                                {rtNextPageToken && (
+                                    <div className="mt-8 flex justify-center">
+                                        <button 
+                                            onClick={handleLoadMore}
+                                            disabled={rtIsLoading}
+                                            className="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-full font-medium text-sm disabled:opacity-50"
+                                        >
+                                            {rtIsLoading ? 'Loading...' : 'Load More Videos'}
+                                        </button>
+                                    </div>
+                                )}
+                              </>
+                          )}
                       </div>
-                      <div className="w-full text-left mb-6 flex items-center justify-between">
-                         <label className="text-xs font-black uppercase ml-1 dark:text-white">dark mode</label>
-                         <button onClick={toggleDarkMode} className="p-2 bg-zinc-200 dark:bg-zinc-700 rounded-full">
-                            {isDarkMode ? <span className="text-xs">on</span> : <span className="text-xs">off</span>}
-                         </button>
-                      </div>
-                      <button onClick={handleSaveSettings} className="w-full bg-green-500 text-black font-bold py-3 border-[3px] border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none hover:bg-green-400 transition-all uppercase flex items-center justify-center gap-2 dark:border-white dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]">
-                          <Check className="w-5 h-5" /> save changes
-                      </button>
-                  </div>
-              </div>
-          </div>
-      )}
-      {showSaveModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 font-sans backdrop-blur-sm">
-          <div className="bg-white border-[3px] border-black hard-shadow p-6 max-w-sm w-full rotate-[-1deg] relative dark:bg-zinc-800 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
-             <button onClick={() => setShowSaveModal(false)} className="absolute top-2 right-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 dark:text-white"><X className="w-5 h-5"/></button>
-             <h2 className="text-2xl font-black uppercase mb-4 text-center dark:text-white">secure evidence</h2>
-             <div className="space-y-3">
-               <button onClick={handleSaveToApp} className="w-full bg-[#86efac] border-[3px] border-black p-3 font-bold hard-shadow-sm hover:-translate-y-1 transition-transform dark:border-white dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
-                 save to vault (local)
-               </button>
-               <button onClick={handleDownloadJSON} className="w-full bg-[#67e8f9] border-[3px] border-black p-3 font-bold hard-shadow-sm hover:-translate-y-1 transition-transform dark:border-white dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
-                 export .json file
-               </button>
-             </div>
-          </div>
-        </div>
-      )}
-      {showSavedList && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 font-sans backdrop-blur-sm">
-           <div className="bg-white border-[3px] border-black hard-shadow w-full max-w-2xl h-[80vh] flex flex-col relative dark:bg-zinc-800 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
-               <div className="bg-[#fde047] border-b-[3px] border-black p-4 flex justify-between items-center dark:bg-zinc-900 dark:border-white">
-                  <h2 className="text-2xl font-black uppercase flex items-center gap-2 dark:text-white"><FolderOpen className="w-6 h-6"/> the vault</h2>
-                  <button onClick={() => setShowSavedList(false)} className="hover:bg-black/10 p-1 dark:text-white"><X className="w-6 h-6"/></button>
-               </div>
-               <div className="flex-1 overflow-auto p-4 space-y-4 bg-[url('https://www.transparenttextures.com/patterns/graphy.png')] dark:bg-zinc-800">
-                  {savedItems.length === 0 && (
-                    <div className="text-center py-10 opacity-50 font-bold dark:text-white">
-                       <p>vault empty</p>
-                       <p className="text-xs mt-2">start scanning to collect evidence.</p>
-                       <button onClick={() => importInputRef.current?.click()} className="mt-4 text-blue-600 underline dark:text-blue-400">import .json</button>
-                    </div>
                   )}
-                  {savedItems.map(item => (
-                    <div key={item.id} className="bg-white border-[3px] border-black p-4 hard-shadow-sm flex justify-between items-center group hover:scale-[1.01] transition-transform dark:bg-zinc-700 dark:border-white dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
-                       <div onClick={() => loadSavedItem(item)} className="cursor-pointer flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                             <span className={clsx("text-[10px] font-bold px-1 border border-black dark:border-white dark:text-white", item.type === 'THUMB_RATER' ? 'bg-pink-300' : item.type === 'DIRTY_TESTER' ? 'bg-orange-300' : 'bg-cyan-300')}>{item.type}</span>
-                             <span className="text-xs text-zinc-500 font-bold dark:text-zinc-300">{new Date(item.date).toLocaleDateString()}</span>
-                          </div>
-                          <h3 className="font-bold text-lg leading-tight dark:text-white">
-                            {item.type === 'THUMB_RATER' ? (item.videoTitle || "untitled thumbnail") : item.type === 'DIRTY_TESTER' ? (item.videoTitle || "dirty analysis") : item.channelDetails?.title}
-                          </h3>
-                       </div>
-                       <button onClick={() => deleteSavedItem(item.id)} className="p-2 hover:bg-red-100 text-red-600 rounded dark:hover:bg-red-900">
-                          <Trash2 className="w-5 h-5" />
-                       </button>
-                    </div>
-                  ))}
-               </div>
-           </div>
-        </div>
-      )}
-      {showChangelog && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 p-4 font-sans backdrop-blur-sm">
-           <div className="bg-white border-[3px] border-black hard-shadow w-full max-w-lg relative rotate-1 dark:bg-zinc-800 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
-               <button onClick={() => setShowChangelog(false)} className="absolute top-2 right-2 p-1 hover:bg-zinc-100 dark:hover:bg-zinc-700 dark:text-white"><X className="w-5 h-5"/></button>
-               <div className="p-6">
-                   <h2 className="text-3xl font-black uppercase mb-6 bg-pink-300 inline-block px-2 border-2 border-black dark:text-black">patch notes</h2>
-                   <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
-                       {CHANGELOG_DATA.map((entry, i) => (
-                           <div key={i} className="border-l-[3px] border-black pl-4 dark:border-white">
-                               <div className="flex items-center gap-2 mb-1">
-                                   <span className="font-black text-lg dark:text-white">{entry.version}</span>
-                                   <span className="text-xs bg-black text-white px-1 font-bold dark:bg-white dark:text-black">{entry.date}</span>
-                               </div>
-                               <h3 className="font-bold uppercase text-zinc-500 mb-2 dark:text-zinc-400">"{entry.title}"</h3>
-                               <ul className="list-disc pl-4 space-y-1">
-                                   {entry.changes.map((change, j) => (
-                                       <li key={j} className="text-sm font-bold dark:text-zinc-300">{change}</li>
-                                   ))}
-                               </ul>
-                           </div>
-                       ))}
-                   </div>
-               </div>
-           </div>
-        </div>
-      )}
-      {showHelp && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 p-4 font-sans backdrop-blur-sm">
-           <div className="bg-white border-[3px] border-black hard-shadow w-full max-w-2xl max-h-[90vh] flex flex-col relative dark:bg-zinc-800 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
-               <div className="bg-[#a78bfa] border-b-[3px] border-black p-4 flex justify-between items-center dark:bg-zinc-900 dark:border-white">
-                  <h2 className="text-2xl font-black uppercase flex items-center gap-2 dark:text-white"><HelpCircle className="w-6 h-6"/> instruction manual</h2>
-                  <button onClick={() => setShowHelp(false)} className="hover:bg-black/10 p-1 dark:text-white"><X className="w-6 h-6"/></button>
-               </div>
-               <div className="p-8 overflow-y-auto dark:text-white">
-                  <div className="space-y-8">
-                      <section>
-                          <h3 className="text-xl font-black mb-2 bg-yellow-300 inline-block px-2 border border-black dark:text-black">1. thumb rater</h3>
-                          <p>paste a youtube link or upload an image. the ai analyzes it based on curiosity, clarity, and emotion. it gives you a score out of 10 and tells you why your thumbnail sucks (or why it rules).</p>
-                      </section>
-                      <section>
-                          <h3 className="text-xl font-black mb-2 bg-cyan-300 inline-block px-2 border border-black dark:text-black">2. bot hunter</h3>
-                          <p>paste a channel link. the ai scans their last 24 videos for repetitive titles, spammy uploads, and soulless descriptions to determine if they are a human or an npc farm.</p>
-                      </section>
-                      <section>
-                          <h3 className="text-xl font-black mb-2 bg-purple-300 inline-block px-2 border border-black dark:text-black">3. ask video (beta)</h3>
-                          <p>paste a video link. the ai "watches" the metadata so you can chat about the video content without watching it yourself.</p>
-                      </section>
-                      <section>
-                          <h3 className="text-xl font-black mb-2 bg-orange-300 inline-block px-2 border border-black dark:text-black">4. dirty tester (beta)</h3>
-                          <p>paste a video link or upload an image. the ai checks if the thumbnail/title combo is "sus", "down bad", or innocent.</p>
-                      </section>
-                  </div>
-               </div>
-           </div>
-        </div>
-      )}
-      {showReporting && (
-          <div className="fixed inset-0 z-[250] flex flex-col items-center justify-center bg-red-600/90 font-sans text-white p-8 text-center backdrop-blur-md animate-in fade-in">
-              <Megaphone className="w-24 h-24 mb-6 animate-bounce" />
-              <h1 className="text-6xl font-black uppercase tracking-tighter mb-4">reporting...</h1>
-              <p className="text-2xl font-bold">contacting the internet police.</p>
+              </div>
           </div>
       )}
 
-      {isCelebrationMode && (
-        <div className="fixed inset-0 pointer-events-none z-10 opacity-30 bg-[url('https://media.giphy.com/media/26tOZ42Mg6pbTUPDa/giphy.gif')] bg-repeat mix-blend-screen"></div>
-      )}
-
-      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload}/>
-      <input type="file" ref={importInputRef} className="hidden" accept=".json" onChange={handleImportJSON} />
-
-      <header className="bg-[#fde047] border-b-[3px] border-black sticky top-0 z-50 font-sans shadow-md dark:bg-zinc-800 dark:border-white">
-        <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3 cursor-pointer group" onClick={resetAnalysis}>
-            <SmashLogo />
-            {/* CHANGE APP NAME HERE */}
-            <h1 className="font-bold text-3xl tracking-tighter text-black italic bg-white px-2 border-2 border-black rotate-[-2deg] group-hover:rotate-[2deg] transition-transform shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] dark:bg-zinc-900 dark:text-white dark:border-white dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
-              ricetool
-            </h1>
-          </div>
-          <div className="flex gap-3">
-            <button onClick={openRiceTube} className="hidden sm:flex items-center gap-2 text-xs font-bold text-black bg-white hover:bg-zinc-100 px-4 py-2 border-2 border-black hard-shadow-sm active:translate-y-0.5 active:shadow-none transition-all uppercase relative dark:bg-zinc-900 dark:text-white dark:border-white dark:hover:bg-zinc-800 dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
-                <ShoppingBag className="w-4 h-4" /> ricetube™
-            </button>
-            <button onClick={() => setShowSavedList(true)} className="flex items-center gap-2 text-xs font-bold text-black bg-white hover:bg-zinc-100 px-4 py-2 border-2 border-black hard-shadow-sm active:translate-y-0.5 active:shadow-none transition-all uppercase dark:bg-zinc-900 dark:text-white dark:border-white dark:hover:bg-zinc-800 dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
-                <FolderOpen className="w-4 h-4" /> vault
-            </button>
-            <button onClick={() => setShowHelp(true)} className="p-2 bg-[#a78bfa] text-black hover:bg-purple-300 border-2 border-black hard-shadow-sm active:translate-y-0.5 active:shadow-none transition-all dark:border-white dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
-                <HelpCircle className="w-4 h-4" />
-            </button>
-            <button onClick={() => setShowSettings(true)} className="p-2 bg-zinc-200 text-black hover:bg-zinc-300 border-2 border-black hard-shadow-sm active:translate-y-0.5 active:shadow-none transition-all dark:bg-zinc-700 dark:text-white dark:border-white dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
-                <Settings className="w-4 h-4" />
-            </button>
-          </div>
+      {/* Main Header */}
+      <header className="sticky top-0 z-50 bg-[#fbbf24] border-b-[3px] border-black px-4 py-3 flex items-center justify-between dark:bg-[#3f3f46] dark:border-white">
+        <div className="flex items-center gap-3">
+          <SmashLogo />
+          <h1 className="text-2xl md:text-3xl font-black italic tracking-tighter drop-shadow-sm text-black dark:text-white" style={{ fontFamily: '"Comic Neue", cursive' }}>
+            PotatoTool
+          </h1>
+        </div>
+        
+        <div className="flex items-center gap-2 md:gap-4">
+          <button onClick={openRiceTube} className="hidden md:flex items-center gap-1 bg-white px-3 py-1.5 border-2 border-black rounded shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-y-0.5 hover:shadow-none transition-all text-xs font-bold uppercase dark:bg-zinc-800 dark:text-white dark:border-zinc-400 dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]">
+             <Youtube className="w-4 h-4" /> TaterTube™
+          </button>
+          
+          <button onClick={() => setShowSavedList(true)} className="bg-white p-2 border-2 border-black rounded shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-y-0.5 hover:shadow-none transition-all flex items-center gap-1 dark:bg-zinc-800 dark:text-white dark:border-zinc-400 dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]">
+             <FolderOpen className="w-5 h-5" /> <span className="hidden md:inline font-bold text-xs uppercase">Vault</span>
+          </button>
+          <button onClick={() => setShowHelp(true)} className="p-2 bg-black text-white rounded hover:bg-zinc-800 transition-colors border-2 border-transparent hover:border-white dark:bg-white dark:text-black dark:hover:border-black">
+              <HelpCircle className="w-5 h-5" />
+          </button>
+          <button onClick={() => setShowSettings(true)} className="p-2 text-black hover:bg-black/10 rounded transition-colors dark:text-white">
+              <Settings className="w-5 h-5" />
+          </button>
         </div>
       </header>
+      
+      {/* Tab Selector - FLEX WRAP for Clean Centered Layout */}
+      <div className="container mx-auto px-4 mt-6 mb-6">
+          <nav className="flex flex-wrap justify-center gap-2 md:gap-4 w-full">
+             {[
+               { id: 'RATER', label: 'Thumb Rater', icon: <Search className="w-4 h-4"/>, color: 'bg-pink-400' },
+               { id: 'BOT_HUNTER', label: 'Bot Hunter', icon: <Bot className="w-4 h-4"/>, color: 'bg-blue-400' },
+               { id: 'VIDEO_CHAT', label: 'Anon Watch', icon: <EyeOff className="w-4 h-4"/>, color: 'bg-zinc-400' },
+               { id: 'DIRTY_TESTER', label: 'Dirty Tester', icon: <Siren className="w-4 h-4"/>, color: 'bg-yellow-400', isBeta: true },
+               { id: 'X_RATER', label: 'X Rater', icon: <Twitter className="w-4 h-4"/>, color: 'bg-black text-white', isBeta: true },
+             ].map((tab) => (
+                 <button
+                    key={tab.id}
+                    onClick={() => { setActiveTab(tab.id as ActiveTab); resetAnalysis(); }}
+                    className={clsx(
+                        "relative px-4 py-3 md:py-2 border-[3px] border-black font-black uppercase text-sm flex items-center justify-center gap-2 transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-y-0 active:shadow-none flex-grow md:flex-grow-0",
+                        activeTab === tab.id ? `${tab.color} text-black` : "bg-white text-black hover:bg-gray-50",
+                        tab.id === 'X_RATER' && activeTab === 'X_RATER' && "text-white"
+                    )}
+                 >
+                     {tab.icon}
+                     {tab.label}
+                     {tab.isBeta && <BetaTape />}
+                 </button>
+             ))}
+          </nav>
+      </div>
 
-      <main className="max-w-7xl mx-auto px-4 py-12 relative z-10 font-sans">
+      <main className="container mx-auto px-4 max-w-4xl relative z-10">
         
-        <div className="flex justify-center mb-16">
-            <div className="bg-white p-2 border-[3px] border-black hard-shadow rotate-1 inline-flex gap-3 relative flex-wrap justify-center dark:bg-zinc-800 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
-                <Tape className="-top-4 right-1/2 translate-x-1/2 rotate-[-1deg] w-32" />
-                <button 
-                    onClick={() => { setActiveTab('RATER'); resetAnalysis(); }}
-                    className={clsx(
-                        "px-6 py-3 text-lg font-bold uppercase transition-all border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]",
-                        activeTab === 'RATER' ? "bg-[#f9a8d4] text-black border-black dark:border-white" : "bg-zinc-100 text-zinc-400 border-transparent hover:text-black hover:border-black dark:bg-zinc-900 dark:text-zinc-500 dark:hover:border-white dark:hover:text-white"
-                    )}
-                >
-                    thumb rater
-                </button>
-                <button 
-                    onClick={() => { setActiveTab('BOT_HUNTER'); resetAnalysis(); }}
-                    className={clsx(
-                        "px-6 py-3 text-lg font-bold uppercase transition-all border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]",
-                        activeTab === 'BOT_HUNTER' ? "bg-[#67e8f9] text-black border-black dark:border-white" : "bg-zinc-100 text-zinc-400 border-transparent hover:text-black hover:border-black dark:bg-zinc-900 dark:text-zinc-500 dark:hover:border-white dark:hover:text-white"
-                    )}
-                >
-                    bot hunter
-                </button>
-                <button 
-                    onClick={() => { setActiveTab('VIDEO_CHAT'); resetAnalysis(); }}
-                    className={clsx(
-                        "px-6 py-3 text-lg font-bold uppercase transition-all border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 relative group dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]",
-                        activeTab === 'VIDEO_CHAT' ? "bg-[#a78bfa] text-black border-black dark:border-white" : "bg-zinc-100 text-zinc-400 border-transparent hover:text-black hover:border-black dark:bg-zinc-900 dark:text-zinc-500 dark:hover:border-white dark:hover:text-white"
-                    )}
-                >
-                    <BetaTape />
-                    ask video
-                </button>
-                <button 
-                    onClick={() => { setActiveTab('DIRTY_TESTER'); resetAnalysis(); }}
-                    className={clsx(
-                        "px-6 py-3 text-lg font-bold uppercase transition-all border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 relative group dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]",
-                        activeTab === 'DIRTY_TESTER' ? "bg-orange-400 text-black border-black dark:border-white" : "bg-zinc-100 text-zinc-400 border-transparent hover:text-black hover:border-black dark:bg-zinc-900 dark:text-zinc-500 dark:hover:border-white dark:hover:text-white"
-                    )}
-                >
-                    <BetaTape />
-                    dirty tester
-                </button>
+        {/* INPUT SECTION */}
+        <div className="bg-white border-[3px] border-black p-4 md:p-8 hard-shadow mb-8 relative dark:bg-zinc-800 dark:border-white dark:text-white">
+            <div className={clsx("absolute -top-3 left-6 px-2 py-0.5 font-bold text-xs uppercase -rotate-2 border border-black hard-shadow-sm", getActiveTabColor())}>
+                {activeTab === 'RATER' && "Input Zone"}
+                {activeTab === 'BOT_HUNTER' && "Target Acquisition"}
+                {activeTab === 'VIDEO_CHAT' && "Private Theater"}
+                {activeTab === 'DIRTY_TESTER' && "Mind Cleaner"}
+                {activeTab === 'X_RATER' && "Based Dept."}
             </div>
-        </div>
 
-        <div className="text-center mb-12 relative">
-            <h1 className="text-6xl md:text-8xl font-bold text-black uppercase tracking-tighter leading-none relative z-10 drop-shadow-xl dark:text-white">
+            <div className="flex flex-col gap-4">
                 {activeTab === 'RATER' && (
-                   <>
-                     is your thumb <br/>
-                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#ef4444] to-[#ec4899] drop-shadow-none">trash?</span>
-                   </>
+                    <>
+                        <div className="flex flex-col md:flex-row gap-3">
+                             <div className="flex-1 relative">
+                                 <input 
+                                    type="text" 
+                                    value={url}
+                                    onChange={handleUrlChange}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleInputSubmit()}
+                                    placeholder="Paste YouTube link..." 
+                                    className="w-full bg-gray-50 border-2 border-black p-3 font-bold focus:outline-none focus:ring-4 focus:ring-pink-400 placeholder:text-gray-400 text-base dark:bg-zinc-700 dark:border-zinc-500 dark:placeholder-zinc-400"
+                                 />
+                                 {url && (
+                                     <button onClick={() => setUrl('')} className="absolute right-3 top-3 text-black hover:text-red-500 dark:text-white">
+                                         <X className="w-6 h-6" />
+                                     </button>
+                                 )}
+                             </div>
+                             <button 
+                                onClick={handleInputSubmit}
+                                disabled={appState === AppState.ANALYZING}
+                                className="bg-[#fbbf24] text-black font-black uppercase px-6 py-3 border-2 border-black hover:bg-[#f59e0b] active:translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                             >
+                                {appState === AppState.ANALYZING ? <Loader2 className="animate-spin w-6 h-6"/> : "Analyze"}
+                             </button>
+                        </div>
+                        <div className="flex items-center gap-4">
+                             <div className="h-px bg-black/20 flex-1 dark:bg-white/20"></div>
+                             <span className="text-xs font-bold uppercase text-gray-400">OR</span>
+                             <div className="h-px bg-black/20 flex-1 dark:bg-white/20"></div>
+                        </div>
+                        <label className="cursor-pointer bg-white border-2 border-black border-dashed p-4 flex flex-col items-center justify-center gap-2 hover:bg-gray-50 transition-colors group dark:bg-zinc-700 dark:border-zinc-500">
+                             <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" className="hidden" />
+                             <div className="bg-black text-white p-2 rounded-full group-hover:scale-110 transition-transform dark:bg-white dark:text-black">
+                                 <Download className="w-5 h-5" />
+                             </div>
+                             <span className="font-bold text-sm uppercase">Upload Thumbnail File</span>
+                        </label>
+                    </>
                 )}
-                {activeTab === 'BOT_HUNTER' && (
-                   <>
-                     are they an <br/>
-                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#67e8f9] to-[#3b82f6] drop-shadow-none">npc?</span>
-                   </>
+
+                {(activeTab === 'BOT_HUNTER') && (
+                    <div className="flex flex-col md:flex-row gap-3">
+                         <input 
+                            type="text" 
+                            value={url}
+                            onChange={handleUrlChange}
+                            placeholder="Paste Channel URL (@handle)..." 
+                            className="flex-1 bg-gray-50 border-2 border-black p-3 font-bold focus:outline-none focus:ring-4 focus:ring-blue-400 text-base dark:bg-zinc-700 dark:border-zinc-500"
+                         />
+                         <button onClick={handleInputSubmit} className="bg-blue-400 text-black font-black uppercase px-6 py-3 border-2 border-black hover:bg-blue-500 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                            Hunt Bots
+                         </button>
+                    </div>
                 )}
-                {activeTab === 'VIDEO_CHAT' && (
-                   <>
-                     does it <br/>
-                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#a78bfa] to-[#8b5cf6] drop-shadow-none">suck?</span>
-                   </>
+                
+                {(activeTab === 'VIDEO_CHAT') && (
+                    <div className="flex flex-col md:flex-row gap-3">
+                         <input 
+                            type="text" 
+                            value={url}
+                            onChange={handleUrlChange}
+                            placeholder="Paste Video URL to Watch Anonymously..." 
+                            className="flex-1 bg-gray-50 border-2 border-black p-3 font-bold focus:outline-none focus:ring-4 focus:ring-zinc-400 text-base dark:bg-zinc-700 dark:border-zinc-500"
+                         />
+                         <button onClick={handleInputSubmit} className="bg-zinc-400 text-black font-black uppercase px-6 py-3 border-2 border-black hover:bg-zinc-500 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                            Watch
+                         </button>
+                    </div>
                 )}
-                {activeTab === 'DIRTY_TESTER' && (
-                   <>
-                     is it <br/>
-                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-500 drop-shadow-none">sus?</span>
-                   </>
+
+                {(activeTab === 'DIRTY_TESTER') && (
+                    <div className="flex flex-col gap-4">
+                         <div className="flex flex-col md:flex-row gap-3">
+                             <input 
+                                type="text" 
+                                value={url}
+                                onChange={handleUrlChange}
+                                placeholder="Paste Video/Image Link..." 
+                                className="flex-1 bg-gray-50 border-2 border-black p-3 font-bold focus:outline-none focus:ring-4 focus:ring-yellow-400 text-base dark:bg-zinc-700 dark:border-zinc-500"
+                             />
+                             <button onClick={handleInputSubmit} className="bg-yellow-400 text-black font-black uppercase px-6 py-3 border-2 border-black hover:bg-yellow-500 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                                Test Mind
+                             </button>
+                        </div>
+                        <label className="cursor-pointer text-center text-sm font-bold underline hover:text-blue-600 dark:text-blue-300">
+                             <input type="file" onChange={handleFileUpload} accept="image/*" className="hidden" />
+                             Or upload an image to test
+                        </label>
+                    </div>
                 )}
-            </h1>
-            <p className="mt-4 text-xl font-bold text-black bg-[#fde047] inline-block px-4 py-1 border-[3px] border-black rotate-[-2deg] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:border-white dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]">
-                {activeTab === 'RATER' ? "find out if you are cooked." : activeTab === 'BOT_HUNTER' ? "find out if they are fake." : activeTab === 'VIDEO_CHAT' ? "chat about any video." : "check your dirty mind."}
-            </p>
+                
+                {(activeTab === 'X_RATER') && (
+                     <div className="flex flex-col md:flex-row gap-3">
+                         <input 
+                            type="text" 
+                            value={url}
+                            onChange={handleUrlChange}
+                            placeholder="Paste X/Twitter Post URL..." 
+                            className="flex-1 bg-gray-50 border-2 border-black p-3 font-bold focus:outline-none focus:ring-4 focus:ring-black/20 text-base dark:bg-zinc-700 dark:border-zinc-500"
+                         />
+                         <button onClick={handleInputSubmit} className="bg-black text-white font-black uppercase px-6 py-3 border-2 border-black hover:bg-zinc-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:border-white dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]">
+                            Rate Tweet
+                         </button>
+                    </div>
+                )}
+            </div>
         </div>
 
-        <div className="max-w-3xl mx-auto mb-16 relative">
-          <div className="absolute -top-6 -left-6 bg-black text-white px-3 py-1 font-bold text-xs rotate-[-5deg] border-2 border-white shadow-md z-10 dark:bg-white dark:text-black dark:border-black">
-              {activeTab === 'RATER' ? "paste it" : activeTab === 'BOT_HUNTER' ? "expose them" : activeTab === 'VIDEO_CHAT' ? "watch it" : activeTab === 'DIRTY_TESTER' ? "check it" : "type it"}
-          </div>
-          <div className="relative group hover:scale-[1.01] transition-transform duration-200">
-            <div className={clsx("relative flex p-3 border-[3px] border-black hard-shadow dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]", 
-                 activeTab === 'RATER' ? "bg-[#67e8f9]" : activeTab === 'BOT_HUNTER' ? "bg-[#86efac]" : activeTab === 'VIDEO_CHAT' ? "bg-[#a78bfa]" : "bg-orange-400")}>
-               <div className="flex items-center justify-center w-14 text-black border-r-[3px] border-black mr-3 bg-white/30">
-                  {activeTab === 'RATER' ? <Youtube className="w-8 h-8" /> : activeTab === 'BOT_HUNTER' ? <Bot className="w-8 h-8" /> : activeTab === 'VIDEO_CHAT' ? <MonitorPlay className="w-8 h-8" /> : <Brain className="w-8 h-8"/>}
-               </div>
-               <input 
-                 type="text" 
-                 placeholder={activeTab === 'RATER' ? "paste youtube link..." : activeTab === 'BOT_HUNTER' ? "paste channel link..." : activeTab === 'VIDEO_CHAT' ? "paste video link..." : "paste video or channel link..."}
-                 className="w-full bg-transparent outline-none text-black placeholder-black/50 px-2 font-bold text-xl uppercase caret-black cursor-text"
-                 value={url}
-                 onChange={handleUrlChange}
-                 onKeyDown={(e) => e.key === 'Enter' && handleInputSubmit()}
-               />
-               <button 
-                 onClick={handleInputSubmit} 
-                 className="bg-[#ec4899] hover:bg-pink-400 text-black px-8 font-bold text-xl border-[3px] border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-y-1 transition-all uppercase"
-               >
-                 {activeTab === 'RATER' ? "judge me" : activeTab === 'BOT_HUNTER' ? "scan" : activeTab === 'VIDEO_CHAT' ? "chat" : "check"}
-               </button>
+        {/* RESULTS AREA */}
+        {appState === AppState.READY_TO_ANALYZE && (
+            <div className="bg-white border-[3px] border-black p-6 hard-shadow animate-slide-up flex flex-col items-center gap-6 dark:bg-zinc-800 dark:border-white dark:text-white">
+                 <h2 className="text-2xl font-black uppercase">Ready to Roast</h2>
+                 {thumbnailSrc && (
+                     <div className="relative w-full max-w-md aspect-video border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                         <img src={thumbnailSrc} className="w-full h-full object-cover" />
+                         {showImageWarning && <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-bold p-4 text-center">Using Uploaded Image (Metadata analysis disabled)</div>}
+                     </div>
+                 )}
+                 {videoTitle && <p className="font-bold text-center text-lg leading-tight">"{videoTitle}"</p>}
+                 
+                 <button onClick={handleAnalyze} className="w-full md:w-auto bg-green-400 text-black font-black text-xl px-12 py-4 border-[3px] border-black hover:bg-green-500 hover:scale-105 transition-transform shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                     START ANALYSIS
+                 </button>
             </div>
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-black dark:bg-white"></div>
-            <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-black dark:bg-white"></div>
-          </div>
-          
-          {(activeTab === 'RATER' || activeTab === 'DIRTY_TESTER') && (
-              <div className="text-center mt-4">
-                  <button onClick={() => fileInputRef.current?.click()} className="text-xs font-bold text-black hover:underline uppercase tracking-wide bg-white px-2 py-1 border border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-y-[2px] transition-all dark:bg-zinc-800 dark:text-white dark:border-white dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]">
-                    {activeTab === 'DIRTY_TESTER' ? "or upload image to check" : "or upload a raw file (dumber)"}
-                  </button>
-              </div>
-          )}
-
-          {errorMsg && (
-            <div className="mt-6 bg-[#ef4444] text-white p-4 font-bold border-[3px] border-black hard-shadow-sm flex items-center gap-3 animate-in fade-in slide-in-from-top-4 rotate-1 dark:border-white dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
-              <CircleAlert className="w-6 h-6 stroke-[3px]" />
-              {errorMsg}
-            </div>
-          )}
-        </div>
-
-        {appState === AppState.LOADING_IMAGE && (
-          <div className="flex flex-col items-center justify-center py-20 animate-slide-up">
-            <Loader2 className="w-16 h-16 text-black animate-spin mb-4 dark:text-white" />
-            <p className="text-2xl font-black bg-white px-4 py-1 border-2 border-black -rotate-2 dark:bg-zinc-800 dark:text-white dark:border-white">stealing data...</p>
-          </div>
         )}
 
         {appState === AppState.ANALYZING && (
-          <div className="flex flex-col items-center justify-center py-20 animate-slide-up">
-             {activeTab === 'VIDEO_CHAT' ? (
-                 <div className="flex flex-col items-center">
-                    <div className="w-20 h-20 bg-[#a78bfa] rounded-full border-[4px] border-black flex items-center justify-center animate-bounce mb-6 dark:border-white">
-                        <MonitorPlay className="w-10 h-10 text-black" />
-                    </div>
-                    <div className="bg-[#a78bfa] border-[3px] border-black p-4 hard-shadow rotate-1 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
-                        <h2 className="text-3xl font-black uppercase">watching video...</h2>
-                        <p className="font-bold text-center mt-2">skipping ads for you.</p>
-                    </div>
+             <div className="flex flex-col items-center justify-center py-20 text-center gap-6">
+                 <div className="relative">
+                     <div className="w-24 h-24 border-[6px] border-black border-t-transparent rounded-full animate-spin dark:border-white dark:border-t-transparent"></div>
+                     <div className="absolute inset-0 flex items-center justify-center font-black text-2xl">
+                         {Math.floor(Math.random() * 99)}%
+                     </div>
                  </div>
-             ) : activeTab === 'DIRTY_TESTER' ? (
-                 <div className="flex flex-col items-center">
-                    <div className="w-20 h-20 bg-orange-400 rounded-full border-[4px] border-black flex items-center justify-center animate-pulse mb-6 dark:border-white">
-                        <Brain className="w-10 h-10 text-black" />
-                    </div>
-                    <div className="bg-orange-400 border-[3px] border-black p-4 hard-shadow rotate-1 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
-                        <h2 className="text-3xl font-black uppercase">checking mind...</h2>
-                        <p className="font-bold text-center mt-2">don't laugh...</p>
-                    </div>
+                 <div className="space-y-2">
+                     <p className="font-black text-2xl uppercase italic">Processing...</p>
+                     <p className="text-lg font-bold text-zinc-500 bg-white/50 px-2 dark:text-zinc-300 dark:bg-black/50">
+                        {activeTab === 'RATER' && "Scanning for clickbait crimes..."}
+                        {activeTab === 'BOT_HUNTER' && "Checking for human soul..."}
+                        {activeTab === 'DIRTY_TESTER' && "Consulting the elders..."}
+                        {activeTab === 'X_RATER' && "Measuring cringe levels..."}
+                     </p>
                  </div>
-             ) : (
-                <>
-                    <div className="w-20 h-20 bg-[#fde047] rounded-full border-[4px] border-black flex items-center justify-center animate-spin mb-6 dark:border-white">
-                        <Loader2 className="w-10 h-10 text-black" />
-                    </div>
-                    <div className="bg-white border-[3px] border-black p-4 hard-shadow rotate-1 dark:bg-zinc-800 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
-                        <h2 className="text-4xl font-black uppercase dark:text-white">cooking...</h2>
-                        <p className="text-xs font-bold text-center mt-2 opacity-50 dark:text-zinc-400">do not turn off your console.</p>
-                    </div>
-                </>
-             )}
-          </div>
-        )}
-        
-        {/* ... [RATER UI Components] ... */}
-        {appState === AppState.READY_TO_ANALYZE && (activeTab === 'RATER' || activeTab === 'DIRTY_TESTER') && thumbnailSrc && (
-          <div className="max-w-4xl mx-auto animate-slide-up">
-             <div className="bg-white border-[3px] border-black p-6 hard-shadow mb-8 relative dark:bg-zinc-800 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
-                <Tape className="-top-3 -left-3 rotate-[-10deg]" />
-                <h2 className="text-2xl font-black uppercase mb-4 flex items-center gap-2 dark:text-white"><FileText className="w-6 h-6"/> stolen data</h2>
-                <div className="space-y-2 font-mono text-sm bg-zinc-100 p-4 border-2 border-black dark:bg-zinc-900 dark:border-white dark:text-zinc-300">
-                    <p><span className="font-bold bg-black text-white px-1 dark:bg-white dark:text-black">title:</span> {isMetadataLoading ? "fetching..." : videoTitle}</p>
-                    {activeTab === 'RATER' && <p><span className="font-bold bg-black text-white px-1 dark:bg-white dark:text-black">desc:</span> {isMetadataLoading ? "..." : (videoDesc ? videoDesc.substring(0, 100) + "..." : "none")}</p>}
-                    {activeTab === 'RATER' && <p><span className="font-bold bg-black text-white px-1 dark:bg-white dark:text-black">tags:</span> {isMetadataLoading ? "..." : (videoKeywords.length > 0 ? videoKeywords.slice(0, 5).join(", ") : "none")}</p>}
-                </div>
              </div>
-
-             <div className="bg-white border-[3px] border-black p-2 hard-shadow rotate-1 mb-8 relative group dark:bg-zinc-800 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
-                <Tape className="-top-3 left-1/2 -translate-x-1/2" />
-                <div className="relative aspect-video bg-black border-2 border-black overflow-hidden dark:border-white">
-                   <img src={thumbnailSrc} className="w-full h-full object-contain" />
-                   {showImageWarning && (
-                       <div className="absolute top-2 right-2 bg-yellow-300 text-black text-xs font-bold px-2 py-1 border border-black rotate-2 shadow-sm">
-                           raw file mode (dumb)
-                       </div>
-                   )}
-                </div>
-             </div>
-             <div className="flex justify-center">
-               <button onClick={handleAnalyze} className="bg-[#86efac] hover:bg-green-400 text-black text-2xl px-12 py-4 font-bold border-[3px] border-black hard-shadow transition-transform active:translate-y-1 active:shadow-none uppercase tracking-tight dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
-                   {activeTab === 'RATER' ? "start judgement" : "check mind"}
-               </button>
-             </div>
-          </div>
         )}
 
+        {/* --- THUMB RATER RESULT --- */}
         {appState === AppState.SUCCESS && activeTab === 'RATER' && result && (
-           <div className="animate-slide-up space-y-12">
-             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                
-                <div className="lg:col-span-8 bg-white border-[3px] border-black p-1 hard-shadow dark:bg-zinc-800 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
-                   <div className="relative aspect-video bg-black border-2 border-black dark:border-white overflow-hidden group">
-                      <img src={thumbnailSrc || ''} className={clsx("w-full h-full object-contain transition-all duration-300", showSusContent ? "blur-none" : (result.isSus ? "blur-2xl" : "blur-none"))} />
-                      {result.isSus && !showSusContent && (
-                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
-                              <TriangleAlert className="w-16 h-16 text-red-500 mb-2 animate-pulse" />
-                              <h3 className="text-3xl font-black text-white uppercase text-center px-4">sus content detected</h3>
-                              <p className="text-white font-bold mb-6 text-center max-w-md">{result.susReason}</p>
-                              <button onClick={() => setShowSusContent(true)} className="bg-white text-black font-bold px-6 py-2 border-2 border-black hover:bg-red-500 hover:text-white transition-colors">
-                                  i am an adult (show me)
-                              </button>
-                          </div>
-                      )}
-                      {result.scores.overall === 10 && (
-                          <div className="absolute -top-4 -right-4 bg-yellow-400 text-black border-[3px] border-black p-2 rotate-[10deg] shadow-lg z-20 font-black text-xl animate-bounce">
-                              legendary!
-                          </div>
-                      )}
-                   </div>
-                </div>
-
-                <div className="lg:col-span-4 h-full min-h-[300px]">
-                   <AnalysisChart scores={result.scores} />
-                </div>
-
-                <div className="lg:col-span-12">
-                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                      <ScoreCard label="clarity" score={result.scores.clarity} rotation="rotate-[-2deg]" />
-                      <ScoreCard label="curiosity" score={result.scores.curiosity} rotation="rotate-[1deg]" />
-                      <ScoreCard label="text" score={result.scores.text_readability} rotation="rotate-[-1deg]" />
-                      <ScoreCard label="emotion" score={result.scores.emotion} rotation="rotate-[2deg]" />
-                   </div>
-                   <div className="flex justify-center">
-                       <ScoreCard label="overall" score={result.scores.overall} rotation="rotate-0" color={result.scores.overall === 10 ? "bg-gradient-to-br from-yellow-300 to-yellow-500" : undefined} icon={result.scores.overall === 10 ? <Flame className="w-6 h-6"/> : undefined} />
-                   </div>
-                </div>
-             </div>
-
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                 <div className="bg-[#fde047] border-[3px] border-black p-6 hard-shadow relative dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
-                    <Tape className="-top-3 left-4" />
-                    <h3 className="text-xl font-black uppercase border-b-2 border-black pb-2 mb-2">the verdict</h3>
-                    <p className="text-xl font-bold leading-relaxed mt-4 text-black">"{result.summary}"</p>
-                 </div>
-                 <div className="bg-white border-[3px] border-black p-6 hard-shadow relative dark:bg-zinc-800 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)] dark:text-white">
-                    <Tape className="-top-3 right-4 rotate-[2deg]" />
-                    <h3 className="text-xl font-black uppercase border-b-2 border-black pb-2 mb-2 dark:border-white">fix this trash</h3>
-                    <ul className="mt-4 space-y-3">
-                       {result.suggestions?.map((s, i) => (
-                           <li key={i} className="flex gap-3 items-start font-medium">
-                               <X className="w-5 h-5 text-red-500 shrink-0 mt-0.5 stroke-[3px]" />
-                               {s}
-                           </li>
-                       ))}
-                    </ul>
-                 </div>
-             </div>
-
-             <div className="flex justify-center gap-4">
-                 <button onClick={() => setShowSaveModal(true)} className="flex items-center gap-2 bg-zinc-200 hover:bg-zinc-300 text-black px-6 py-3 font-bold border-[3px] border-black hard-shadow-sm active:translate-y-0.5 active:shadow-none transition-all uppercase dark:bg-zinc-700 dark:text-white dark:border-white dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
-                     <Download className="w-5 h-5" /> save evidence
-                 </button>
-                 <button onClick={resetAnalysis} className="flex items-center gap-2 bg-white hover:bg-zinc-100 text-black px-6 py-3 font-bold border-[3px] border-black hard-shadow-sm active:translate-y-0.5 active:shadow-none transition-all uppercase dark:bg-zinc-800 dark:text-white dark:border-white dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
-                     <Trash2 className="w-5 h-5" /> trash it
-                 </button>
-             </div>
-             
-             {/* CHAT ROOM */}
-             <div className="max-w-3xl mx-auto bg-white border-[3px] border-black hard-shadow flex flex-col h-[500px] relative dark:bg-zinc-800 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
-                <div className="bg-[#ec4899] border-b-[3px] border-black p-3 flex items-center gap-2 dark:border-white">
-                   <MessageSquare className="w-6 h-6 text-black fill-white" />
-                   <h3 className="font-black text-xl text-white uppercase tracking-wider drop-shadow-md">the roast room</h3>
-                </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-zinc-50 dark:bg-zinc-900/50">
-                   {chatHistory.map((msg, idx) => (
-                      <div key={idx} className={clsx("flex gap-3", msg.role === 'user' ? "flex-row-reverse" : "")}>
-                         {msg.role === 'model' && <RiceDroidAvatar />}
-                         <div className={clsx(
-                           "p-3 max-w-[80%] font-bold text-sm border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]",
-                           msg.role === 'user' ? "bg-white text-black rounded-tl-xl rounded-bl-xl rounded-br-xl dark:bg-zinc-200" : "bg-yellow-300 text-black rounded-tr-xl rounded-br-xl rounded-bl-xl"
-                         )}>
-                            {msg.text}
-                         </div>
-                      </div>
-                   ))}
-                   {isChatLoading && (
-                      <div className="flex gap-3">
-                         <RiceDroidAvatar />
-                         <div className="bg-zinc-200 p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl border-2 border-black animate-pulse flex gap-1">
-                            <div className="w-2 h-2 bg-black rounded-full animate-bounce"></div>
-                            <div className="w-2 h-2 bg-black rounded-full animate-bounce delay-100"></div>
-                            <div className="w-2 h-2 bg-black rounded-full animate-bounce delay-200"></div>
-                         </div>
-                      </div>
-                   )}
-                   <div ref={chatEndRef} />
-                </div>
-                <div className="p-3 bg-zinc-100 border-t-[3px] border-black flex gap-2 dark:bg-zinc-800 dark:border-white">
-                   <input 
-                     type="text" 
-                     className="flex-1 bg-white border-2 border-black px-3 py-2 font-bold outline-none focus:bg-yellow-50 dark:bg-zinc-700 dark:border-zinc-500 dark:text-white"
-                     placeholder="defend yourself..."
-                     value={chatInput}
-                     onChange={(e) => setChatInput(e.target.value)}
-                     onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                   />
-                   <button onClick={handleSendMessage} disabled={isChatLoading} className="bg-black text-white p-2 hover:bg-zinc-800 border-2 border-transparent disabled:opacity-50 dark:bg-white dark:text-black">
-                      <Send className="w-5 h-5" />
-                   </button>
-                </div>
-             </div>
-           </div>
-        )}
-        
-        {/* ... [BOT HUNTER UI - Same as before] ... */}
-        {appState === AppState.SUCCESS && activeTab === 'BOT_HUNTER' && botResult && (
-           <div className="animate-slide-up space-y-12">
-               <div className="bg-white border-[3px] border-black p-8 hard-shadow text-center relative overflow-hidden dark:bg-zinc-800 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
-                   <div className={clsx(
-                       "absolute top-0 left-0 w-full h-4",
-                       botResult.verdict === 'HUMAN' ? 'bg-green-500' : botResult.verdict === 'CYBORG' ? 'bg-yellow-500' : 'bg-red-600'
-                   )}></div>
-                   <h2 className="text-4xl font-black uppercase mb-2 mt-4 dark:text-white">{analyzingChannel?.title}</h2>
-                   <div className="flex justify-center gap-4 text-sm font-bold text-zinc-500 mb-8 dark:text-zinc-400">
-                       <span>{analyzingChannel?.subscriberCount} subs</span>
-                       <span>•</span>
-                       <span>{analyzingChannel?.videoCount} videos</span>
-                   </div>
-                   
-                   <div className="inline-block relative">
-                       <div className={clsx(
-                           "text-8xl font-black px-8 py-4 border-[6px] border-black rotate-[-2deg] shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:border-white dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)]",
-                           botResult.verdict === 'HUMAN' ? 'bg-[#86efac] text-black' : botResult.verdict === 'CYBORG' ? 'bg-[#fde047] text-black' : 'bg-[#ef4444] text-white'
-                       )}>
-                           {botResult.verdict}
-                       </div>
-                       <div className="mt-4 font-mono font-bold text-lg dark:text-white">bot probability: {botResult.botScore}%</div>
-                   </div>
-                   
-                   <div className="mt-12 text-left bg-zinc-50 border-2 border-black p-6 dark:bg-zinc-900 dark:border-white dark:text-white">
-                       <h3 className="font-black uppercase text-xl mb-4 border-b-2 border-black pb-2 flex gap-2 items-center dark:border-white">
-                           <Siren className="w-6 h-6 text-red-600"/> evidence locker
-                       </h3>
-                       <ul className="space-y-2 list-disc pl-5">
-                           {botResult.evidence?.map((e, i) => (
-                               <li key={i} className="font-medium">{e}</li>
-                           ))}
-                       </ul>
-                       <div className="mt-6 p-4 bg-yellow-200 border-2 border-black border-dashed dark:bg-yellow-900/50 dark:border-white">
-                           <p className="font-bold italic">"{botResult.summary}"</p>
-                       </div>
-                   </div>
-               </div>
-               
-               <div className="flex justify-center gap-4">
-                 <button onClick={() => setShowSaveModal(true)} className="flex items-center gap-2 bg-zinc-200 hover:bg-zinc-300 text-black px-6 py-3 font-bold border-[3px] border-black hard-shadow-sm active:translate-y-0.5 active:shadow-none transition-all uppercase dark:bg-zinc-700 dark:text-white dark:border-white dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
-                     <Download className="w-5 h-5" /> archive case
-                 </button>
-                 <button onClick={handleReportChannel} className="flex items-center gap-2 bg-red-500 hover:bg-red-400 text-white px-6 py-3 font-bold border-[3px] border-black hard-shadow-sm active:translate-y-0.5 active:shadow-none transition-all uppercase dark:border-white dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
-                     <Megaphone className="w-5 h-5" /> report channel
-                 </button>
-               </div>
-
-               {/* CHAT ROOM BOT */}
-               <div className="max-w-3xl mx-auto bg-white border-[3px] border-black hard-shadow flex flex-col h-[500px] relative dark:bg-zinc-800 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
-                <div className="bg-[#67e8f9] border-b-[3px] border-black p-3 flex items-center gap-2 dark:border-white">
-                   <MessageSquare className="w-6 h-6 text-black fill-white" />
-                   <h3 className="font-black text-xl text-black uppercase tracking-wider drop-shadow-md">the interrogation room</h3>
-                </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-zinc-50 dark:bg-zinc-900/50">
-                   {chatHistory.map((msg, idx) => (
-                      <div key={idx} className={clsx("flex gap-3", msg.role === 'user' ? "flex-row-reverse" : "")}>
-                         {msg.role === 'model' && <RiceDroidAvatar />}
-                         <div className={clsx(
-                           "p-3 max-w-[80%] font-bold text-sm border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]",
-                           msg.role === 'user' ? "bg-white text-black rounded-tl-xl rounded-bl-xl rounded-br-xl dark:bg-zinc-200" : "bg-cyan-200 text-black rounded-tr-xl rounded-br-xl rounded-bl-xl"
-                         )}>
-                            {msg.text}
-                         </div>
-                      </div>
-                   ))}
-                   {isChatLoading && (
-                      <div className="flex gap-3">
-                         <RiceDroidAvatar />
-                         <div className="bg-zinc-200 p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl border-2 border-black animate-pulse flex gap-1">
-                            <div className="w-2 h-2 bg-black rounded-full animate-bounce"></div>
-                            <div className="w-2 h-2 bg-black rounded-full animate-bounce delay-100"></div>
-                            <div className="w-2 h-2 bg-black rounded-full animate-bounce delay-200"></div>
-                         </div>
-                      </div>
-                   )}
-                   <div ref={chatEndRef} />
-                </div>
-                <div className="p-3 bg-zinc-100 border-t-[3px] border-black flex gap-2 dark:bg-zinc-800 dark:border-white">
-                   <input 
-                     type="text" 
-                     className="flex-1 bg-white border-2 border-black px-3 py-2 font-bold outline-none focus:bg-cyan-50 dark:bg-zinc-700 dark:border-zinc-500 dark:text-white"
-                     placeholder="comment with the ai..."
-                     value={chatInput}
-                     onChange={(e) => setChatInput(e.target.value)}
-                     onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                   />
-                   <button onClick={handleSendMessage} disabled={isChatLoading} className="bg-black text-white p-2 hover:bg-zinc-800 border-2 border-transparent disabled:opacity-50 dark:bg-white dark:text-black">
-                      <Send className="w-5 h-5" />
-                   </button>
-                </div>
-             </div>
-           </div>
-        )}
-
-        {/* ... [VIDEO CHAT UI - Same as before] ... */}
-        {appState === AppState.SUCCESS && activeTab === 'VIDEO_CHAT' && videoAnalysisResult && (
             <div className="animate-slide-up space-y-8">
-                <div className="max-w-5xl mx-auto bg-black border-[4px] border-black hard-shadow relative overflow-hidden dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
-                     <iframe 
-                        className="w-full aspect-video" 
-                        src={`https://www.youtube.com/embed/${activeVideoId}`} 
-                        title="youtube video player" 
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                        allowFullScreen
-                     ></iframe>
-                </div>
-                
-                <div className="max-w-5xl mx-auto bg-[#a78bfa] border-[3px] border-black p-6 hard-shadow rotate-1 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
-                    <h2 className="text-2xl font-black uppercase mb-2">vibe check</h2>
-                    <p className="text-xl font-bold">"{videoAnalysisResult.summary}"</p>
-                    <div className="flex gap-2 mt-4 flex-wrap">
-                        {videoAnalysisResult.topics?.map((topic, i) => (
-                            <span key={i} className="bg-black text-white px-3 py-1 font-bold text-sm border-2 border-white">{topic}</span>
-                        ))}
-                        <span className="bg-white text-black px-3 py-1 font-bold text-sm border-2 border-black">tone: {videoAnalysisResult.tone}</span>
+                {isCelebrationMode && (
+                    <div className="bg-yellow-300 border-[3px] border-black p-4 text-center font-black text-2xl animate-bounce shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                        🏆 PERFECT SCORE! YOU COOKED! 🏆
                     </div>
+                )}
+                
+                {/* Score Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                     <div className="col-span-2 md:col-span-1 md:row-span-1 h-full">
+                        <ScoreCard label="Overall" score={result.scores.overall} color="bg-white" rotation="rotate-[-2deg]" />
+                     </div>
+                     <ScoreCard label="Clarity" score={result.scores.clarity} rotation="rotate-1" />
+                     <ScoreCard label="Curiosity" score={result.scores.curiosity} rotation="rotate-[-1deg]" />
+                     <ScoreCard label="Text" score={result.scores.text_readability} rotation="rotate-2" />
+                     <ScoreCard label="Emotion" score={result.scores.emotion} rotation="rotate-[-2deg]" />
                 </div>
 
-                <div className="max-w-5xl mx-auto bg-white border-[3px] border-black hard-shadow flex flex-col h-[600px] relative dark:bg-zinc-800 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
-                    <div className="bg-[#a78bfa] border-b-[3px] border-black p-3 flex items-center gap-2 dark:border-white">
-                        <MonitorPlay className="w-6 h-6 text-black fill-white" />
-                        <h3 className="font-black text-xl text-black uppercase tracking-wider drop-shadow-md">live chat</h3>
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-zinc-50 dark:bg-zinc-900/50">
-                        {chatHistory.map((msg, idx) => (
-                            <div key={idx} className={clsx("flex gap-3", msg.role === 'user' ? "flex-row-reverse" : "")}>
-                                {msg.role === 'model' && <RiceDroidAvatar />}
-                                <div className={clsx(
-                                "p-3 max-w-[80%] font-bold text-sm border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]",
-                                msg.role === 'user' ? "bg-white text-black rounded-tl-xl rounded-bl-xl rounded-br-xl dark:bg-zinc-200" : "bg-[#d8b4fe] text-black rounded-tr-xl rounded-br-xl rounded-bl-xl"
-                                )}>
-                                    {msg.text}
-                                </div>
-                            </div>
-                        ))}
-                        {isChatLoading && (
-                            <div className="flex gap-3">
-                                <RiceDroidAvatar />
-                                <div className="bg-zinc-200 p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl border-2 border-black animate-pulse flex gap-1">
-                                    <div className="w-2 h-2 bg-black rounded-full animate-bounce"></div>
-                                    <div className="w-2 h-2 bg-black rounded-full animate-bounce delay-100"></div>
-                                    <div className="w-2 h-2 bg-black rounded-full animate-bounce delay-200"></div>
-                                </div>
-                            </div>
-                        )}
-                        <div ref={chatEndRef} />
-                    </div>
-                    <div className="p-3 bg-zinc-100 border-t-[3px] border-black flex gap-2 dark:bg-zinc-800 dark:border-white">
-                        <input 
-                            type="text" 
-                            className="flex-1 bg-white border-2 border-black px-3 py-2 font-bold outline-none focus:bg-[#ebdcfc] dark:bg-zinc-700 dark:border-zinc-500 dark:text-white"
-                            placeholder="chat about the video..."
-                            value={chatInput}
-                            onChange={(e) => setChatInput(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                        />
-                        <button onClick={handleSendMessage} disabled={isChatLoading} className="bg-black text-white p-2 hover:bg-zinc-800 border-2 border-transparent disabled:opacity-50 dark:bg-white dark:text-black">
-                            <Send className="w-5 h-5" />
-                        </button>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                     {/* Chart */}
+                     <div className="bg-white p-4 border-[3px] border-black hard-shadow h-80 dark:bg-zinc-800 dark:border-white">
+                         <div className="h-full w-full">
+                            <AnalysisChart scores={result.scores} />
+                         </div>
+                     </div>
+
+                     {/* Verdict */}
+                     <div className="bg-white border-[3px] border-black hard-shadow p-6 flex flex-col justify-between dark:bg-zinc-800 dark:border-white dark:text-white">
+                         <div>
+                             <h3 className="text-xl font-black uppercase mb-4 border-b-2 border-black pb-2 inline-block dark:border-white">The Verdict</h3>
+                             <p className="text-lg font-bold leading-relaxed mb-6">"{result.summary}"</p>
+                             
+                             <div className="space-y-3">
+                                 {result.suggestions.map((s, i) => (
+                                     <div key={i} className="flex items-start gap-3">
+                                         <div className="bg-black text-white w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 font-bold text-sm dark:bg-white dark:text-black">{i+1}</div>
+                                         <p className="font-medium text-sm md:text-base">{s}</p>
+                                     </div>
+                                 ))}
+                             </div>
+                         </div>
+                         {result.isSus && (
+                             <div className="mt-6 bg-red-100 border-2 border-red-500 p-3 flex items-center gap-3 text-red-700">
+                                 <Siren className="w-6 h-6 animate-pulse" />
+                                 <div>
+                                     <span className="font-black uppercase block text-sm">Sus Detected</span>
+                                     <span className="text-xs font-bold">{result.susReason || "This might get demonetized."}</span>
+                                 </div>
+                             </div>
+                         )}
+                     </div>
+                </div>
+
+                {/* Save / Share Buttons */}
+                <div className="flex flex-col md:flex-row gap-4 justify-center">
+                    <button onClick={() => setShowSaveModal(true)} className="bg-white border-2 border-black px-8 py-3 font-bold uppercase hover:bg-gray-50 hard-shadow-sm flex items-center justify-center gap-2 dark:bg-zinc-800 dark:text-white dark:border-white">
+                        <FolderOpen className="w-5 h-5"/> Save Result
+                    </button>
+                    <button onClick={() => {
+                        window.open(`https://twitter.com/intent/tweet?text=I got a ${result.scores.overall}/10 on PotatoTool. "${result.summary}"&url=https://potatotool.app`, '_blank');
+                    }} className="bg-[#1DA1F2] text-white border-2 border-black px-8 py-3 font-bold uppercase hover:bg-[#1a91da] hard-shadow-sm flex items-center justify-center gap-2">
+                        <Twitter className="w-5 h-5"/> Share Shame
+                    </button>
                 </div>
             </div>
         )}
 
-        {appState === AppState.SUCCESS && activeTab === 'DIRTY_TESTER' && dirtyResult && (
-             <div className="animate-slide-up space-y-12">
-                 <div className="bg-white border-[3px] border-black p-8 hard-shadow text-center relative overflow-hidden dark:bg-zinc-800 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
-                     <div className={clsx(
-                         "absolute top-0 left-0 w-full h-4",
-                         dirtyResult.verdict === 'PURE' ? 'bg-green-500' : dirtyResult.verdict === 'SUS' ? 'bg-yellow-500' : dirtyResult.verdict === 'DOWN_BAD' ? 'bg-orange-500' : 'bg-red-600'
-                     )}></div>
-                     
-                     <div className="mx-auto max-w-lg mb-6 p-4 bg-zinc-100 border-2 border-black font-mono dark:bg-zinc-900 dark:text-white dark:border-white">
-                         <span className="bg-black text-white px-1 text-xs font-bold uppercase mr-2 dark:bg-white dark:text-black">Title:</span>
-                         <span className="font-bold">{videoTitle || "Unknown"}</span>
-                     </div>
-
-                     {thumbnailSrc && (
-                         <div className="mx-auto w-64 aspect-video mb-6 border-2 border-black overflow-hidden relative rotate-1">
-                             <img src={thumbnailSrc} className="w-full h-full object-cover" />
-                             <Tape className="-top-3 left-1/2 -translate-x-1/2"/>
-                         </div>
-                     )}
-                     
-                     <div className="inline-block relative">
-                         <div className={clsx(
-                             "text-8xl font-black px-8 py-4 border-[6px] border-black rotate-[-2deg] shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:border-white dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)]",
-                             dirtyResult.verdict === 'PURE' ? 'bg-[#86efac] text-black' : dirtyResult.verdict === 'SUS' ? 'bg-[#fde047] text-black' : dirtyResult.verdict === 'DOWN_BAD' ? 'bg-orange-400 text-black' : 'bg-[#ef4444] text-white'
-                         )}>
-                             {dirtyResult.verdict}
-                         </div>
-                         <div className="mt-4 font-mono font-bold text-lg dark:text-white">dirty meter: {dirtyResult.dirtyScore}%</div>
-                     </div>
-                     
-                     <div className="mt-12 text-left bg-zinc-50 border-2 border-black p-6 dark:bg-zinc-900 dark:border-white dark:text-white">
-                         <h3 className="font-black uppercase text-xl mb-4 border-b-2 border-black pb-2 flex gap-2 items-center dark:border-white">
-                             <Brain className="w-6 h-6 text-orange-600"/> analysis
-                         </h3>
-                         <p className="font-bold text-lg mb-6">"{dirtyResult.explanation}"</p>
-                         
-                         <h4 className="font-bold uppercase text-sm mb-2 text-zinc-500 dark:text-zinc-400">alternatives vs reality:</h4>
-                         <ul className="space-y-2 list-disc pl-5">
-                             {dirtyResult.alternatives?.map((e, i) => (
-                                 <li key={i} className="font-medium">{e}</li>
-                             ))}
-                         </ul>
+        {/* --- BOT HUNTER RESULT --- */}
+        {appState === AppState.SUCCESS && activeTab === 'BOT_HUNTER' && botResult && (
+             <div className="animate-slide-up bg-white border-[3px] border-black p-6 hard-shadow dark:bg-zinc-800 dark:border-white dark:text-white">
+                 <div className="flex items-center justify-between mb-6 border-b-2 border-black pb-4 dark:border-white">
+                     <h2 className="text-2xl font-black uppercase flex items-center gap-2">
+                         Bot Hunter <Bot className="w-8 h-8"/>
+                     </h2>
+                     <div className={clsx("px-4 py-1 font-black uppercase text-xl border-2 border-black rotate-2",
+                         botResult.verdict === 'HUMAN' ? 'bg-green-400' : 
+                         botResult.verdict === 'CYBORG' ? 'bg-yellow-400' : 'bg-red-500 text-white'
+                     )}>
+                         {botResult.verdict}
                      </div>
                  </div>
                  
-                 <div className="flex justify-center gap-4">
-                   <button onClick={() => setShowSaveModal(true)} className="flex items-center gap-2 bg-zinc-200 hover:bg-zinc-300 text-black px-6 py-3 font-bold border-[3px] border-black hard-shadow-sm active:translate-y-0.5 active:shadow-none transition-all uppercase dark:bg-zinc-700 dark:text-white dark:border-white dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
-                       <Download className="w-5 h-5" /> archive result
-                   </button>
-                   <button onClick={resetAnalysis} className="flex items-center gap-2 bg-white hover:bg-zinc-100 text-black px-6 py-3 font-bold border-[3px] border-black hard-shadow-sm active:translate-y-0.5 active:shadow-none transition-all uppercase dark:bg-zinc-800 dark:text-white dark:border-white dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
-                       <Trash2 className="w-5 h-5" /> try another
-                   </button>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
+                     <div className="flex flex-col items-center justify-center bg-gray-100 border-2 border-black p-4 dark:bg-zinc-700 dark:border-zinc-500">
+                         <span className="text-sm font-bold uppercase mb-2">Bot Probability Score</span>
+                         <span className="text-6xl font-black">{botResult.botScore}%</span>
+                         <div className="w-full h-4 bg-gray-300 mt-4 border border-black rounded-full overflow-hidden">
+                             <div className="h-full bg-red-600 transition-all duration-1000" style={{ width: `${botResult.botScore}%` }}></div>
+                         </div>
+                     </div>
+                     <div className="space-y-4">
+                         <p className="text-lg font-medium italic">"{botResult.summary}"</p>
+                         <div className="space-y-2">
+                             <span className="font-bold uppercase text-xs bg-black text-white px-2 py-0.5 dark:bg-white dark:text-black">Evidence:</span>
+                             <ul className="list-disc pl-5 space-y-1 font-medium text-sm">
+                                 {botResult.evidence.map((e, i) => <li key={i}>{e}</li>)}
+                             </ul>
+                         </div>
+                     </div>
+                 </div>
+                 <button onClick={() => setShowSaveModal(true)} className="w-full bg-gray-100 border-2 border-black py-2 font-bold hover:bg-gray-200 uppercase text-sm dark:bg-zinc-700 dark:text-white dark:border-zinc-500">Save Report</button>
+             </div>
+        )}
+
+        {/* --- DIRTY TESTER RESULT --- */}
+        {appState === AppState.SUCCESS && activeTab === 'DIRTY_TESTER' && dirtyResult && (
+             <div className="animate-slide-up bg-white border-[3px] border-black p-6 hard-shadow relative overflow-hidden dark:bg-zinc-800 dark:border-white dark:text-white">
+                 <Tape className="top-[-10px] left-1/2 -translate-x-1/2 rotate-2" />
+                 
+                 <div className="text-center mb-8 mt-4">
+                      <h2 className="text-4xl font-black uppercase tracking-tighter mb-2">
+                          {dirtyResult.verdict === 'PURE' ? '😇 PURE' : 
+                           dirtyResult.verdict === 'SUS' ? '🤨 SUS' : 
+                           dirtyResult.verdict === 'DOWN_BAD' ? '🥵 DOWN BAD' : '🚓 JAIL'}
+                      </h2>
+                      <div className="inline-block bg-black text-white px-4 py-1 text-sm font-bold uppercase rotate-[-1deg] dark:bg-white dark:text-black">
+                          Dirty Mind Score: {dirtyResult.dirtyScore}/100
+                      </div>
                  </div>
 
-                 {/* CHAT ROOM DIRTY */}
-                 <div className="max-w-3xl mx-auto bg-white border-[3px] border-black hard-shadow flex flex-col h-[500px] relative dark:bg-zinc-800 dark:border-white dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
-                    <div className="bg-orange-400 border-b-[3px] border-black p-3 flex items-center gap-2 dark:border-white">
-                       <MessageSquare className="w-6 h-6 text-black fill-white" />
-                       <h3 className="font-black text-xl text-black uppercase tracking-wider drop-shadow-md">the gutter</h3>
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-zinc-50 dark:bg-zinc-900/50">
-                       {chatHistory.map((msg, idx) => (
-                          <div key={idx} className={clsx("flex gap-3", msg.role === 'user' ? "flex-row-reverse" : "")}>
-                             {msg.role === 'model' && <RiceDroidAvatar />}
-                             <div className={clsx(
-                               "p-3 max-w-[80%] font-bold text-sm border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]",
-                               msg.role === 'user' ? "bg-white text-black rounded-tl-xl rounded-bl-xl rounded-br-xl dark:bg-zinc-200" : "bg-orange-200 text-black rounded-tr-xl rounded-br-xl rounded-bl-xl"
-                             )}>
-                                {msg.text}
-                             </div>
-                          </div>
-                       ))}
-                       {isChatLoading && (
-                          <div className="flex gap-3">
-                             <RiceDroidAvatar />
-                             <div className="bg-zinc-200 p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl border-2 border-black animate-pulse flex gap-1">
-                                <div className="w-2 h-2 bg-black rounded-full animate-bounce"></div>
-                                <div className="w-2 h-2 bg-black rounded-full animate-bounce delay-100"></div>
-                                <div className="w-2 h-2 bg-black rounded-full animate-bounce delay-200"></div>
-                             </div>
-                          </div>
-                       )}
-                       <div ref={chatEndRef} />
-                    </div>
-                    <div className="p-3 bg-zinc-100 border-t-[3px] border-black flex gap-2 dark:bg-zinc-800 dark:border-white">
-                       <input 
-                         type="text" 
-                         className="flex-1 bg-white border-2 border-black px-3 py-2 font-bold outline-none focus:bg-orange-50 dark:bg-zinc-700 dark:border-zinc-500 dark:text-white"
-                         placeholder="say something..."
-                         value={chatInput}
-                         onChange={(e) => setChatInput(e.target.value)}
-                         onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                       />
-                       <button onClick={handleSendMessage} disabled={isChatLoading} className="bg-black text-white p-2 hover:bg-zinc-800 border-2 border-transparent disabled:opacity-50 dark:bg-white dark:text-black">
-                          <Send className="w-5 h-5" />
-                       </button>
-                    </div>
+                 <div className="bg-[#fef9c3] border-2 border-black p-4 mb-6 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:bg-zinc-900 dark:border-zinc-500">
+                     <p className="font-bold text-lg leading-tight">"{dirtyResult.explanation}"</p>
                  </div>
+
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <div className="bg-green-100 border-2 border-black p-4 relative dark:bg-green-900/30 dark:border-green-500">
+                         <span className="absolute -top-3 left-4 bg-green-500 text-white px-2 py-0.5 text-xs font-black uppercase border border-black">Innocent Reality</span>
+                         <p className="mt-2 font-bold">{dirtyResult.alternatives?.[0] || "Just a normal object."}</p>
+                     </div>
+                     <div className="bg-pink-100 border-2 border-black p-4 relative dark:bg-pink-900/30 dark:border-pink-500">
+                         <span className="absolute -top-3 right-4 bg-pink-500 text-white px-2 py-0.5 text-xs font-black uppercase border border-black">Dirty Illusion</span>
+                         <p className="mt-2 font-bold">{dirtyResult.alternatives?.[1] || "What you think it is."}</p>
+                     </div>
+                 </div>
+                 
+                 <button onClick={() => setShowSaveModal(true)} className="mt-6 w-full bg-white border-2 border-black py-2 font-bold hover:bg-gray-50 uppercase text-sm dark:bg-zinc-700 dark:border-zinc-500">Save For Therapy</button>
              </div>
+        )}
+
+        {/* --- X RATER RESULT --- */}
+        {appState === AppState.SUCCESS && activeTab === 'X_RATER' && xResult && (
+             <div className="animate-slide-up bg-black text-white border-[3px] border-zinc-500 p-6 hard-shadow shadow-white/20">
+                 <div className="flex justify-between items-start mb-6">
+                     <h2 className="text-3xl font-black italic">X-RATED</h2>
+                     <div className="text-right">
+                         <div className="text-sm text-zinc-400 font-mono">VERDICT_PROTOCOL</div>
+                         <div className="text-2xl font-bold text-blue-400">{xResult.verdict}</div>
+                     </div>
+                 </div>
+                 
+                 <div className="grid grid-cols-2 gap-4 mb-6">
+                     <div className="bg-zinc-900 p-4 border border-zinc-700">
+                         <div className="text-xs text-zinc-500 uppercase tracking-widest">Based Score</div>
+                         <div className="text-4xl font-black">{xResult.basedScore}/10</div>
+                     </div>
+                     <div className="bg-zinc-900 p-4 border border-zinc-700">
+                         <div className="text-xs text-zinc-500 uppercase tracking-widest">Cringe Score</div>
+                         <div className="text-4xl font-black text-red-500">{xResult.cringeScore}/10</div>
+                     </div>
+                 </div>
+
+                 <div className="mb-6">
+                     <div className="flex justify-between text-xs font-bold uppercase mb-1">
+                         <span>Ratio Risk Calculation</span>
+                         <span>{xResult.ratioRisk}%</span>
+                     </div>
+                     <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
+                         <div className="h-full bg-gradient-to-r from-blue-500 to-red-500" style={{ width: `${xResult.ratioRisk}%` }}></div>
+                     </div>
+                 </div>
+
+                 {xResult.communityNotePrediction && (
+                     <div className="bg-zinc-900 border border-zinc-700 p-4 relative mt-8">
+                         <div className="absolute -top-3 left-4 bg-zinc-800 text-zinc-300 px-2 py-0.5 text-xs font-bold uppercase border border-zinc-600 flex items-center gap-1">
+                             <ShieldCheck className="w-3 h-3"/> Community Note
+                         </div>
+                         <p className="font-mono text-sm leading-relaxed">
+                             "{xResult.communityNotePrediction}"
+                         </p>
+                     </div>
+                 )}
+                 <button onClick={() => setShowSaveModal(true)} className="mt-6 w-full bg-white text-black font-bold py-3 hover:bg-zinc-200">ARCHIVE TWEET DATA</button>
+             </div>
+        )}
+
+        {/* --- ANON WATCH (NEW) --- */}
+        {appState === AppState.SUCCESS && activeTab === 'VIDEO_CHAT' && activeVideoId && (
+            <div className="animate-slide-up space-y-4">
+                 <div className="bg-black p-1 border-[3px] border-black hard-shadow">
+                     <div className="aspect-video w-full bg-black">
+                         <iframe 
+                             src={`https://www.youtube-nocookie.com/embed/${activeVideoId}`}
+                             className="w-full h-full"
+                             title="Anonymous Video Player"
+                             frameBorder="0"
+                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                             allowFullScreen
+                         ></iframe>
+                     </div>
+                 </div>
+                 <div className="bg-zinc-100 p-4 border-2 border-black text-sm text-zinc-600 flex items-center gap-2 dark:bg-zinc-800 dark:border-zinc-500 dark:text-zinc-300">
+                     <EyeOff className="w-5 h-5"/>
+                     <span>You are watching in Anonymous Mode. No history, no algorithm tracking.</span>
+                 </div>
+            </div>
         )}
 
       </main>
 
-      <footer className="absolute bottom-4 w-full text-center font-bold text-xs pointer-events-none">
-         <button onClick={() => setShowChangelog(true)} className="pointer-events-auto bg-white border-2 border-black px-3 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-y-[2px] transition-all uppercase dark:bg-zinc-800 dark:text-white dark:border-white dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]">
-           v2.31 changelog
-         </button>
-         <p className="mt-2 opacity-50 bg-white/50 inline-block px-1 dark:text-white dark:bg-zinc-900/50">built with hate & love</p>
+      {/* --- POTATO BOT CHAT (For Analysis Tabs Only) --- */}
+      {appState === AppState.SUCCESS && activeTab !== 'VIDEO_CHAT' && (
+          <div className="container mx-auto px-4 max-w-4xl mt-12 mb-20">
+               <div className="bg-white border-[3px] border-black hard-shadow flex flex-col md:flex-row h-[500px] md:h-96 dark:bg-zinc-800 dark:border-white">
+                    <div className="bg-[#fbbf24] p-4 md:w-1/3 border-b-2 md:border-b-0 md:border-r-2 border-black flex flex-col items-center justify-center text-center gap-2 dark:bg-zinc-700 dark:border-white dark:text-white">
+                        <PotatoBotAvatar />
+                        <h3 className="font-black text-lg">PotatoBot</h3>
+                        <p className="text-xs font-bold leading-tight opacity-80">
+                            "I have seen things you people wouldn't believe. Mainly cringe thumbnails."
+                        </p>
+                    </div>
+                    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-zinc-900">
+                        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                             {chatHistory.length === 0 && (
+                                 <div className="text-center text-gray-400 text-sm mt-10 italic">
+                                     Ask me anything about the analysis...
+                                 </div>
+                             )}
+                             {chatHistory.map((msg, i) => (
+                                 <div key={i} className={clsx("flex flex-col max-w-[85%]", msg.role === 'user' ? "self-end items-end" : "self-start items-start")}>
+                                     <div className={clsx(
+                                         "px-3 py-2 text-sm font-bold border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,0.1)]",
+                                         msg.role === 'user' ? "bg-white rounded-l-xl rounded-tr-xl dark:bg-zinc-700 dark:border-zinc-500 dark:text-white" : "bg-[#fbbf24] rounded-r-xl rounded-tl-xl text-black"
+                                     )}>
+                                         {msg.text}
+                                     </div>
+                                 </div>
+                             ))}
+                             {isChatLoading && (
+                                 <div className="self-start bg-gray-200 px-3 py-2 rounded-xl text-xs animate-pulse">Typing...</div>
+                             )}
+                             <div ref={chatEndRef}></div>
+                        </div>
+                        <div className="p-3 border-t-2 border-black bg-white flex gap-2 dark:bg-zinc-800 dark:border-white">
+                             <input 
+                                value={chatInput}
+                                onChange={(e) => setChatInput(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                                placeholder="Ask PotatoBot..." 
+                                className="flex-1 bg-transparent focus:outline-none font-bold text-sm text-base dark:text-white"
+                             />
+                             <button onClick={handleSendMessage} disabled={isChatLoading} className="bg-black text-white p-2 rounded hover:bg-zinc-800 dark:bg-white dark:text-black">
+                                 <Send className="w-4 h-4" />
+                             </button>
+                        </div>
+                    </div>
+               </div>
+          </div>
+      )}
+
+      {/* Footer (No Border) */}
+      <footer className="bg-white text-black py-8 text-center mt-20">
+          <p className="font-black uppercase tracking-widest text-sm mb-2">PotatoTool v2.54</p>
+          <div className="flex justify-center gap-4 text-zinc-500 text-xs font-bold uppercase mb-4">
+              <button onClick={() => setShowChangelog(true)} className="hover:text-black">Changelog</button>
+              <span>•</span>
+              <button onClick={() => setShowHelp(true)} className="hover:text-black">FAQ</button>
+              <span>•</span>
+              <a href="#" className="hover:text-black">Terms (Lol)</a>
+          </div>
+          <p className="text-zinc-400 text-[10px] max-w-md mx-auto px-4">
+              Not affiliated with YouTube. Data provided by magic and algorithms. 
+              Don't blame the potato if your video flops.
+          </p>
       </footer>
+
+      {/* --- MODALS --- */}
+      
+      {/* Reporting Modal */}
+      {showReporting && (
+           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+               <div className="bg-white border-4 border-red-600 p-8 max-w-sm w-full text-center space-y-4 shadow-[8px_8px_0px_0px_rgba(220,38,38,1)]">
+                    <Siren className="w-16 h-16 text-red-600 mx-auto animate-bounce" />
+                    <h2 className="text-2xl font-black uppercase text-red-600">REPORTING...</h2>
+                    <p className="font-bold">Contacting the Internet Police. Please wait.</p>
+                    <Loader2 className="w-8 h-8 mx-auto animate-spin" />
+               </div>
+           </div>
+      )}
+
+      {/* Save Vault Modal */}
+      {showSavedList && (
+           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+               <div className="bg-white border-[3px] border-black w-full max-w-2xl h-[80vh] flex flex-col shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:bg-zinc-800 dark:border-white dark:text-white">
+                   <div className="p-4 border-b-2 border-black flex justify-between items-center bg-gray-50 dark:bg-zinc-700 dark:border-white">
+                       <h2 className="text-xl font-black uppercase flex items-center gap-2">
+                           <FolderOpen className="w-6 h-6"/> The Vault
+                       </h2>
+                       <button onClick={() => setShowSavedList(false)}><X className="w-6 h-6"/></button>
+                   </div>
+                   
+                   <div className="p-4 border-b-2 border-black bg-gray-100 flex gap-2 dark:bg-zinc-900 dark:border-white">
+                        <label className="flex-1 bg-white border-2 border-black px-4 py-2 font-bold text-sm text-center cursor-pointer hover:bg-gray-50 dark:bg-zinc-800 dark:border-zinc-500">
+                             Import JSON
+                             <input type="file" ref={importInputRef} onChange={handleImportJSON} accept=".json" className="hidden" />
+                        </label>
+                   </div>
+
+                   <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                       {savedItems.length === 0 ? (
+                           <div className="text-center py-20 text-gray-400 italic">No saved items. Analyze something!</div>
+                       ) : (
+                           savedItems.map(item => (
+                               <div key={item.id} className="border-2 border-black p-3 flex gap-4 hover:bg-gray-50 transition-colors dark:border-zinc-500 dark:hover:bg-zinc-700">
+                                   {item.thumbnailBase64 ? (
+                                       <img src={`data:image/jpeg;base64,${item.thumbnailBase64}`} className="w-20 h-12 object-cover border border-black" />
+                                   ) : (
+                                       <div className="w-20 h-12 bg-gray-200 border border-black flex items-center justify-center font-bold text-xs">{item.type}</div>
+                                   )}
+                                   <div className="flex-1 min-w-0">
+                                       <div className="flex items-center gap-2 mb-1">
+                                           <span className={clsx("text-[10px] font-black uppercase px-1.5 py-0.5 border border-black text-white",
+                                               item.type === 'THUMB_RATER' ? 'bg-pink-400' : 
+                                               item.type === 'BOT_HUNTER' ? 'bg-blue-400' : 
+                                               item.type === 'DIRTY_TESTER' ? 'bg-yellow-400' : 'bg-black'
+                                           )}>{item.type.replace('_', ' ')}</span>
+                                           <span className="text-xs text-gray-500 dark:text-gray-400">{new Date(item.date).toLocaleDateString()}</span>
+                                       </div>
+                                       <h4 className="font-bold text-sm truncate">{item.videoTitle || item.channelDetails?.title || item.xUrl || "Untitled"}</h4>
+                                   </div>
+                                   <div className="flex flex-col gap-2">
+                                       <button onClick={() => loadSavedItem(item)} className="p-1 hover:bg-blue-100 rounded text-blue-600"><MonitorPlay className="w-4 h-4"/></button>
+                                       <button onClick={() => deleteSavedItem(item.id)} className="p-1 hover:bg-red-100 rounded text-red-600"><Trash2 className="w-4 h-4"/></button>
+                                   </div>
+                               </div>
+                           ))
+                       )}
+                   </div>
+               </div>
+           </div>
+      )}
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="bg-white border-[3px] border-black p-6 w-full max-w-md shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] relative dark:bg-zinc-800 dark:border-white dark:text-white">
+                 <button onClick={() => setShowSettings(false)} className="absolute top-4 right-4"><X className="w-6 h-6"/></button>
+                 <h2 className="text-2xl font-black uppercase mb-6 flex items-center gap-2"><Settings className="w-6 h-6"/> Settings</h2>
+                 
+                 <div className="space-y-6">
+                     <div>
+                         <label className="block font-bold text-sm mb-2 uppercase">Custom YouTube API Key (Optional)</label>
+                         <input 
+                            type="password" 
+                            value={apiKeyInput}
+                            onChange={(e) => setApiKeyInput(e.target.value)}
+                            className="w-full border-2 border-black p-2 font-mono text-sm dark:bg-zinc-700 dark:border-zinc-500"
+                            placeholder="AIzaSy..."
+                         />
+                         <p className="text-xs text-gray-500 mt-1">If search stops working, add your own key. We don't save this on any server.</p>
+                     </div>
+
+                     <div className="flex items-center justify-between border-t-2 border-gray-200 pt-4 dark:border-zinc-700">
+                         <span className="font-bold">Dark Mode</span>
+                         <button onClick={toggleDarkMode} className="p-2 border-2 border-black rounded shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-y-0.5 hover:shadow-none dark:border-white dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]">
+                             {isDarkMode ? <SunIcon /> : <MoonIcon />}
+                         </button>
+                     </div>
+
+                     <button onClick={handleSaveSettings} className="w-full bg-black text-white font-bold uppercase py-3 hover:bg-zinc-800 dark:bg-white dark:text-black">Save Changes</button>
+                 </div>
+            </div>
+        </div>
+      )}
+
+      {/* Save Modal */}
+      {showSaveModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+             <div className="bg-white border-[3px] border-black p-6 w-full max-w-md text-center shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:bg-zinc-800 dark:border-white dark:text-white">
+                 <h2 className="text-2xl font-black uppercase mb-4">Save Analysis</h2>
+                 <p className="mb-6 font-medium">Where do you want to keep this masterpiece?</p>
+                 <div className="space-y-3">
+                     <button onClick={handleSaveToApp} className="w-full bg-[#fbbf24] border-2 border-black py-3 font-bold uppercase hover:bg-[#f59e0b] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                         Save to App Vault
+                     </button>
+                     <button onClick={handleDownloadJSON} className="w-full bg-white border-2 border-black py-3 font-bold uppercase hover:bg-gray-50 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:bg-zinc-700 dark:border-white">
+                         Download JSON
+                     </button>
+                     <button onClick={() => setShowSaveModal(false)} className="mt-2 text-sm underline hover:text-gray-500">Cancel</button>
+                 </div>
+             </div>
+          </div>
+      )}
+
+      {/* Changelog Modal */}
+      {showChangelog && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+              <div className="bg-white border-[3px] border-black w-full max-w-lg max-h-[80vh] flex flex-col shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] relative dark:bg-zinc-800 dark:border-white dark:text-white">
+                  <button onClick={() => setShowChangelog(false)} className="absolute top-4 right-4"><X className="w-6 h-6"/></button>
+                  <div className="p-6 border-b-2 border-black bg-[#fbbf24] dark:bg-zinc-700 dark:border-white">
+                      <h2 className="text-2xl font-black uppercase">Changelog</h2>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                      {CHANGELOG_DATA.map((entry, i) => (
+                          <div key={i} className="border-l-4 border-black pl-4 dark:border-white">
+                              <div className="flex justify-between items-baseline mb-1">
+                                  <h3 className="font-black text-lg">{entry.version}</h3>
+                                  <span className="text-xs font-mono text-gray-500 dark:text-gray-400">{entry.date}</span>
+                              </div>
+                              <h4 className="font-bold mb-2 italic">"{entry.title}"</h4>
+                              <ul className="list-disc pl-4 text-sm space-y-1">
+                                  {entry.changes.map((c, j) => <li key={j}>{c}</li>)}
+                              </ul>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* Help Modal */}
+      {showHelp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+             <div className="bg-white border-[3px] border-black p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] relative dark:bg-zinc-800 dark:border-white dark:text-white">
+                 <button onClick={() => setShowHelp(false)} className="absolute top-4 right-4"><X className="w-6 h-6"/></button>
+                 <h2 className="text-2xl font-black uppercase mb-6 flex items-center gap-2">How to use</h2>
+                 
+                 <div className="space-y-6">
+                     <div>
+                         <h3 className="font-black text-lg bg-pink-200 inline-block px-2 border border-black mb-2 dark:text-black">Thumb Rater</h3>
+                         <p className="text-sm">Paste a YouTube link. Our AI (PotatoBot) analyzes the thumbnail for clickability, clarity, and "sus" factors. It gives you a score out of 10 and actionable roasting.</p>
+                     </div>
+                     <div>
+                         <h3 className="font-black text-lg bg-blue-200 inline-block px-2 border border-black mb-2 dark:text-black">Bot Hunter</h3>
+                         <p className="text-sm">Paste a Channel link. We scan their recent videos, titles, and stats to determine if they are a human, a "cyborg" (human using heavy tools), or a soulless NPC content farm.</p>
+                     </div>
+                     <div>
+                         <h3 className="font-black text-lg bg-zinc-300 inline-block px-2 border border-black mb-2 dark:text-black">Anon Watch</h3>
+                         <p className="text-sm">Paste a video link to watch it in a privacy-enhanced player. No algorithm tracking, no history, just the video.</p>
+                     </div>
+                     <div>
+                         <h3 className="font-black text-lg bg-yellow-200 inline-block px-2 border border-black mb-2 dark:text-black">Dirty Tester</h3>
+                         <p className="text-sm">Upload an image (or link). The AI checks if your thumbnail looks like something "inappropriate" at a glance. Helps avoid accidental demonetization.</p>
+                     </div>
+                 </div>
+             </div>
+        </div>
+      )}
+
     </div>
   );
 };
+
+const SunIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2"/><path d="M12 21v2"/><path d="M4.22 4.22l1.42 1.42"/><path d="M18.36 18.36l1.42 1.42"/><path d="M1 12h2"/><path d="M21 12h2"/><path d="M4.22 19.78l1.42-1.42"/><path d="M18.36 5.64l1.42-1.42"/></svg>
+);
+
+const MoonIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+);
 
 export default App;

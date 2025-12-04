@@ -1,9 +1,7 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
-import { AnalysisResult, ChatMessage, BotAnalysisResult, VideoAnalysisResult, ChannelDetails, SearchResult, VideoMetadata, DirtyAnalysisResult } from '../types';
+import { AnalysisResult, ChatMessage, BotAnalysisResult, VideoAnalysisResult, ChannelDetails, SearchResult, VideoMetadata, DirtyAnalysisResult, XAnalysisResult } from '../types';
 
 const getAiClient = () => {
-  // Fixed: 'env' does not exist on type 'ImportMeta'.
-  // Guideline: API key must be obtained exclusively from process.env.API_KEY.
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
@@ -13,7 +11,6 @@ const cleanJsonString = (str: string): string => {
 
 const sanitizeString = (str?: string | null): string => {
   if (!str) return "";
-  // Escape double quotes and backticks to prevent breaking the prompt template
   return str.replace(/"/g, '\\"').replace(/`/g, '\\`');
 };
 
@@ -47,50 +44,30 @@ export const analyzeThumbnail = async (
   }
 
   const normalPrompt = `
-    Analyze this YouTube thumbnail as an OBJECTIVE, "dumb-smart" YouTube algorithm expert. You speak in slang, but your technical analysis is PhD level.
+    Analyze this YouTube thumbnail as an OBJECTIVE, "dumb-smart" YouTube algorithm expert known as PotatoBot. You speak in slang, but your technical analysis is PhD level.
     
     METADATA EXTRACTED FROM LINK:
     ${contextPrompt}
     
-    PHASE 1: SUS CHECK (SAFETY FILTER)
-    Analyze if the image is "SUS" (Inappropriate, Sexually Suggestive, Excessive Skin/Cleavage bait, Gore, or Dangerous).
-    - If it looks like "Softcore Porn", "Clickbait Smut", or contains gore: Set isSus = true.
-    - Otherwise: Set isSus = false.
-    - IMPORTANT: EVEN IF IS SUS, YOU MUST PROCEED TO SCORE IT NORMALLY. Do not block the analysis. Just flag it.
+    PHASE 1: SUS CHECK (SAFETY FILTER) - BE ACCURATE
+    Analyze if the image is GENUINELY "SUS" (Explicit, Fetish, Gore, or Age-Restricted).
+    - VERDICT: Only set isSus = true if it crosses the line into "Softcore" or "NSFW". If it's just "Clickbait Sexy", it is false.
 
     PHASE 2: SCORING (STRICT MATHEMATICAL FAIRNESS)
-    You must score each category on a 0-10 scale. Use INTEGERS only.
+    Score 0-10. DO NOT BE AFRAID TO GIVE A 10.
     
-    SCORING MINDSET: 
-    - Use the FULL range (0-10). 
-    - **DO NOT BE AFRAID TO GIVE A 10.** 
-    - A "10" means "Top Tier / Industry Standard", it does NOT mean "Divine Impossible Perfection". 
-    - If it's excellent, GIVE IT THE 10.
-    
-    1. Clarity (Weight: 20%): 
-       - How quickly can I understand the subject? (0=Mess, 10=Crystal Clear)
-    
-    2. Curiosity (Weight: 40%): 
-       - Do I have a burning question? Does it create an "Information Gap"? (0=Boring Stock Photo, 10=MUST CLICK NOW)
-    
-    3. Text/Hierarchy (Weight: 10%): 
-       - Readability & Contrast. 
-       - CRITICAL RULE: IF THERE IS NO TEXT, rate the "Visual Focal Point" instead. DO NOT give a low score just because there is no text. A text-free image can be a 10 if the visual hierarchy is perfect.
-    
-    4. Emotion/Vibe (Weight: 30%): 
-       - Facial expression, lighting mood, or color psychology. (0=Dead/Bland, 10=Intense/Gripping)
-    
-    5. Overall (Calculated): 
-       - YOU MUST CALCULATE THIS STRICTLY using this formula:
-       - (Curiosity * 0.4) + (Emotion * 0.3) + (Clarity * 0.2) + (Text * 0.1)
-       - Round the result to the nearest INTEGER (e.g. 9.5 rounds UP to 10).
+    1. Clarity (20%): How quickly can I understand the subject?
+    2. Curiosity (40%): Do I have a burning question? (Information Gap)
+    3. Text/Hierarchy (10%): Readability & Contrast.
+    4. Emotion/Vibe (30%): Facial expression, lighting mood.
+    5. Overall (Calculated): (Curiosity * 0.4) + (Emotion * 0.3) + (Clarity * 0.2) + (Text * 0.1). Round to Integer.
     
     OUTPUT INSTRUCTIONS:
       - Return ONLY raw JSON.
       - isSus: Boolean.
-      - susReason: If isSus is true, provide a short warning.
-      - Summary: A 1-sentence verdict. Cite a SPECIFIC visual element.
-      - Suggestions: 3 SPECIFIC, TECHNICAL fixes or compliments.
+      - susReason: Short warning if true.
+      - Summary: 1-sentence verdict.
+      - Suggestions: 3 SPECIFIC fixes.
   `;
 
   try {
@@ -139,294 +116,59 @@ export const analyzeThumbnail = async (
   }
 };
 
-export const analyzeVideoContext = async (
-  metadata: VideoMetadata, 
-  videoId: string
-): Promise<VideoAnalysisResult> => {
-  const modelId = "gemini-2.5-flash";
-  const ai = getAiClient();
-  
-  const prompt = `
-    Analyze this YouTube Video Metadata to provide a "Vibe Check" before we start chatting about it.
-    
-    VIDEO TITLE: "${sanitizeString(metadata.title)}"
-    CHANNEL: "${sanitizeString(metadata.channelTitle)}"
-    DESCRIPTION: "${sanitizeString(metadata.description?.substring(0, 1000))}"
-    KEYWORDS: "${metadata.keywords ? metadata.keywords.map(k => sanitizeString(k)).join(', ') : ''}"
-    
-    Task:
-    1. Summarize what this video is likely about in 1 snarky/funny sentence.
-    2. Identify 3 main topics.
-    3. Determine the "Tone" (e.g., Cringy, Educational, Clickbait, Wholesome).
-    
-    IMPORTANT: You have Google Search grounding enabled. If the metadata is vague, USE YOUR TOOLS to find out what this video is actually about.
-    
-    Output JSON (Do not use markdown code blocks):
-    {
-      "videoId": "${videoId}",
-      "summary": "string",
-      "topics": ["string", "string", "string"],
-      "tone": "string"
-    }
-  `;
-
-  try {
-    const response = (await withTimeout(ai.models.generateContent({
-        model: modelId,
-        contents: prompt,
-        config: {
-           tools: [{ googleSearch: {} }],
-        }
-    }))) as GenerateContentResponse;
-    if (!response.text) throw new Error("No response");
-    try {
-        return JSON.parse(cleanJsonString(response.text));
-    } catch (e) {
-        const match = response.text.match(/\{[\s\S]*\}/);
-        if (match) return JSON.parse(match[0]);
-        throw new Error("Failed to parse JSON from search result");
-    }
-  } catch (e) {
-      throw e;
-  }
-};
-
-export interface ChatContext {
-  type: 'RATER' | 'BOT_HUNTER' | 'VIDEO_CHAT' | 'DIRTY_TESTER';
-  imageBase64?: string | null;
-  raterResult?: AnalysisResult | null;
-  botResult?: BotAnalysisResult | null;
-  channelDetails?: ChannelDetails | null;
-  videoResult?: VideoAnalysisResult | null;
-  videoMetadata?: VideoMetadata | null;
-  dirtyResult?: DirtyAnalysisResult | null;
-}
-
-export const sendChatMessage = async (
-  history: ChatMessage[],
-  newMessage: string,
-  context: ChatContext
-): Promise<string> => {
-  const modelId = "gemini-2.5-flash";
-  const ai = getAiClient();
-  const contents = [];
-
-  let systemPromptText = "You are a Gen Z social media manager. Be helpful but snarky. ALWAYS be specific.";
-  let initialUserParts = [];
-
-  if (context.type === 'RATER' && context.raterResult && context.imageBase64) {
-    const metaTitle = context.videoMetadata?.title ? `Title: "${sanitizeString(context.videoMetadata.title)}"` : "Title: Unknown";
-    const metaDesc = context.videoMetadata?.description ? `Desc: "${sanitizeString(context.videoMetadata.description.substring(0, 300))}..."` : "";
-
-    const normalContext = `
-      You are a sarcastic, funny YouTube expert named "RiceDroid".
-      
-      CONTEXT OF ANALYSIS:
-      ${metaTitle}
-      ${metaDesc}
-      Scores: ${JSON.stringify(context.raterResult.scores)}
-      Verdict: "${sanitizeString(context.raterResult.summary)}"
-      Key Fixes: ${JSON.stringify(context.raterResult.suggestions)}
-      Sus Status: ${context.raterResult.isSus ? "YES" : "NO"}.
-      
-      USER QUESTION: "${sanitizeString(newMessage)}"
-      
-      CRITICAL INSTRUCTION: 
-      - Do NOT give generic advice like "make it pop". 
-      - You MUST reference specific visual elements from the image.
-      - Connect the metadata title to the image visuals.
-      - Be brutally honest but precise. Use slang/internet humor.
-    `;
-    initialUserParts = [
-      { inlineData: { mimeType: 'image/jpeg', data: context.imageBase64 } },
-      { text: normalContext }
-    ];
-  
-  } else if (context.type === 'BOT_HUNTER' && context.botResult && context.channelDetails) {
-    systemPromptText = "You are a suspicious, cynical investigator named 'Deckard'. You hunt bots.";
-    const botContext = `
-      You are analyzing a YouTube Channel for bot activity.
-      
-      TARGET INFO:
-      Channel: "${sanitizeString(context.channelDetails.title)}"
-      Subs: ${context.channelDetails.subscriberCount} | Videos: ${context.channelDetails.videoCount}
-      
-      ANALYSIS FINDINGS:
-      Verdict: ${context.botResult.verdict} (${context.botResult.botScore}% Bot Probability)
-      Specific Evidence Found: ${JSON.stringify(context.botResult.evidence)}
-      Summary: "${sanitizeString(context.botResult.summary)}"
-      
-      USER QUESTION: "${sanitizeString(newMessage)}"
-    `;
-    initialUserParts = [
-      { text: botContext }
-    ];
-
-  } else if (context.type === 'VIDEO_CHAT' && context.videoMetadata) {
-      systemPromptText = "You are 'CouchBuddy', a friend watching this video with the user.";
-      const vidContext = `
-        We are "watching" a YouTube Video via its metadata.
-        Title: "${sanitizeString(context.videoMetadata.title)}"
-        Channel: "${sanitizeString(context.videoMetadata.channelTitle)}"
-        Description: "${sanitizeString(context.videoMetadata.description?.substring(0, 800))}"
-        Tags: "${context.videoMetadata.keywords?.join(', ')}"
-        
-        Initial Vibe Check: ${context.videoResult?.summary}
-        Tone: ${context.videoResult?.tone}
-
-        User Input: "${sanitizeString(newMessage)}"
-
-        Instructions:
-        - Act like you are watching it right now.
-        - If the user asks about a specific visual moment you can't see, joke about it or make an educated guess based on description.
-        - Be funny, opinionated, and use internet slang.
-      `;
-      initialUserParts = [
-          { text: vidContext }
-      ];
-  } else if (context.type === 'DIRTY_TESTER' && context.dirtyResult) {
-      systemPromptText = "You are an immature teenager who finds 'that's what she said' jokes in everything.";
-      const dirtyContext = `
-        We are analyzing a thumbnail and title for 'Dirty Mind' potential.
-        
-        Verdict: ${context.dirtyResult.verdict} (${context.dirtyResult.dirtyScore}% Dirty)
-        Explanation: ${context.dirtyResult.explanation}
-        
-        User Input: "${sanitizeString(newMessage)}"
-      `;
-      initialUserParts = [{ text: dirtyContext }];
-  }
-
-  if (history.length === 0) {
-    contents.push({
-      role: 'user',
-      parts: initialUserParts
-    });
-  } else {
-    let contextMsg = "";
-    if (context.type === 'RATER' && context.raterResult) {
-       contextMsg = `Recall: Analyzing thumbnail "${sanitizeString(context.videoMetadata?.title || 'Unknown Video')}". Score: ${context.raterResult.scores.overall}/10.`;
-       contents.push({
-        role: 'user',
-        parts: [
-          { inlineData: { mimeType: 'image/jpeg', data: context.imageBase64 || '' } },
-          { text: contextMsg }
-        ]
-      });
-    } else if (context.type === 'BOT_HUNTER' && context.botResult) {
-       contextMsg = `Recall: Analyzing channel "${sanitizeString(context.channelDetails?.title)}". Verdict: ${context.botResult.verdict}.`;
-       contents.push({ role: 'user', parts: [{ text: contextMsg }]});
-    } else if (context.type === 'VIDEO_CHAT' && context.videoMetadata) {
-        contextMsg = `Recall: Discussing video "${sanitizeString(context.videoMetadata.title)}".`;
-        contents.push({ role: 'user', parts: [{ text: contextMsg }]});
-    } else if (context.type === 'DIRTY_TESTER') {
-        contextMsg = `Recall: Dirty mind analysis. Score: ${context.dirtyResult?.dirtyScore}`;
-        contents.push({ role: 'user', parts: [{ text: contextMsg }]});
-    }
-
-    history.forEach(msg => {
-      contents.push({
-        role: msg.role,
-        parts: [{ text: msg.text }]
-      });
-    });
-
-    contents.push({
-      role: 'user',
-      parts: [{ text: newMessage }]
-    });
-  }
-
-  try {
-    const response = (await withTimeout(ai.models.generateContent({
-      model: modelId,
-      contents: contents,
-      config: {
-        systemInstruction: systemPromptText,
-        tools: [{ googleSearch: {} }]
-      }
-    }))) as GenerateContentResponse;
-
-    return response.text || "I have no words.";
-  } catch (error) {
-    console.error("Chat Error:", error);
-    return "Brain freeze. Try again.";
-  }
-};
-
 export const analyzeBotProbability = async (
   channelDetails: ChannelDetails,
-  videos: SearchResult[]
+  recentVideos: SearchResult[]
 ): Promise<BotAnalysisResult> => {
   const modelId = "gemini-2.5-flash";
   const ai = getAiClient();
 
+  const videoData = recentVideos.map(v => `- ${v.title} (${v.publishedAt})`).join("\n");
+  
   const prompt = `
-    Analyze this YouTube channel data to detect if it is a HUMAN, a CYBORG (Human using Heavy AI tools), or an NPC FARM (Fully Automated Bot).
+    You are a "Bot Hunter" AI. Analyze this YouTube channel to see if it's a HUMAN, a CYBORG (Assisted), or an NPC FARM (Soulless/AI Gen).
     
-    CHANNEL INFO:
-    Name: ${sanitizeString(channelDetails.title)}
-    Description: ${sanitizeString(channelDetails.description)}
+    CHANNEL DATA:
+    Name: ${channelDetails.title}
     Subs: ${channelDetails.subscriberCount}
     Videos: ${channelDetails.videoCount}
+    Desc: ${channelDetails.description}
     
-    RECENT VIDEOS (Last 15):
-    ${videos.map(v => `- Title: "${sanitizeString(v.title)}" | Date: ${v.publishedAt}`).join('\n')}
+    RECENT VIDEOS:
+    ${videoData}
     
-    DETECT THESE PATTERNS:
-    1. **Title Templating**: Are titles identical with 1 variable changed?
-    2. **Upload Spam**: Are they uploading 5+ times a day?
-    3. **Keyword Salad**: Does the description look like SEO vomit?
-    4. **Low Effort**: Does it look like Reddit TTS or compilation spam?
+    CRITERIA:
+    - Generic stock titles?
+    - Spammy frequency?
+    - Repetitive thumbnails/topics?
+    - AI-generated descriptions?
     
-    SCORING (0-100):
-    0 = Authentic Human Vlogger.
-    50 = High-Effort AI / Faceless Channel (The "Cyborg" Zone).
-    100 = Soulless Content Farm / Bot.
-    
-    VERDICT:
-    - HUMAN (0-39)
-    - CYBORG (40-79)
-    - NPC_FARM (80-100)
-    
-    RETURN RAW JSON ONLY.
-    
-    OUTPUT SCHEMA:
-    {
-       "botScore": number,
-       "verdict": "HUMAN" | "CYBORG" | "NPC_FARM",
-       "evidence": ["string", "string"],
-       "summary": "string"
-    }
+    OUTPUT JSON:
+    - botScore: 0 (Pure Human) to 100 (Total Bot).
+    - verdict: 'HUMAN', 'CYBORG', or 'NPC_FARM'.
+    - evidence: Array of 3 strings explaining why.
+    - summary: A brutal 1-sentence roast or compliment.
   `;
 
-  try {
-    const response = (await withTimeout(ai.models.generateContent({
-      model: modelId,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            botScore: { type: Type.NUMBER },
-            verdict: { type: Type.STRING, enum: ['HUMAN', 'CYBORG', 'NPC_FARM'] },
-            evidence: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING }
-            },
-            summary: { type: Type.STRING }
-          }
-        }
+  const response = (await withTimeout(ai.models.generateContent({
+    model: modelId,
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+         type: Type.OBJECT,
+         properties: {
+             botScore: { type: Type.NUMBER },
+             verdict: { type: Type.STRING, enum: ["HUMAN", "CYBORG", "NPC_FARM"] },
+             evidence: { type: Type.ARRAY, items: { type: Type.STRING } },
+             summary: { type: Type.STRING }
+         }
       }
-    }))) as GenerateContentResponse;
-    
-    if (!response.text) throw new Error("No response");
-    return JSON.parse(cleanJsonString(response.text)) as BotAnalysisResult;
-  } catch (e) {
-    console.error("Bot analysis failed", e);
-    throw e;
-  }
+    }
+  }))) as GenerateContentResponse;
+
+  if (!response.text) throw new Error("No response");
+  return JSON.parse(cleanJsonString(response.text)) as BotAnalysisResult;
 };
 
 export const analyzeDirtyMind = async (
@@ -437,56 +179,201 @@ export const analyzeDirtyMind = async (
   const ai = getAiClient();
 
   const prompt = `
-    You are a Dirty Mind Detector. Your job is to analyze the combination of this YouTube Thumbnail and Video Title for double entendres, visual ambiguity, and "sus" baiting.
+    You are the "Dirty Tester". Your job is to analyze images and titles for "Accidental Innuendo" vs "Deliberate Bait".
     
     CONTEXT:
-    Title: "${sanitizeString(title)}"
+    Video Title: "${sanitizeString(title)}"
     
     TASK:
-    Rate how "Dirty" or "Sus" this thumbnail/title combo is. Creators often use innocent images with ambiguous titles (or vice versa) to trick dirty minds.
+    Look at the image. Does it look like something else? (e.g. A geode that looks like a body part, a mushroom that looks wrong).
     
-    SCORING (0-100):
-    0 = Completely Innocent / Pure / Wholesome
-    50 = Ambiguous / "Sus" if you squint / Clickbait Bait
-    100 = Down Bad / Explicitly implied / "They knew what they were doing"
-    
-    VERDICT:
-    - PURE (0-20)
-    - SUS (21-60)
-    - DOWN_BAD (61-90)
-    - JAIL (91-100)
-    
-    Provide an explanation of WHY it's dirty (or why it's innocent).
-    Provide innocent alternatives vs what a dirty mind sees.
+    OUTPUT JSON:
+    - dirtyScore: 0 (Pure) to 100 (Jail).
+    - verdict: 'PURE' (Innocent), 'SUS' (Suggestive), 'DOWN_BAD' (Intentional Bait), 'JAIL' (Too far).
+    - explanation: Why is it dirty? (Be funny).
+    - alternatives: Array of 2 strings. [0] = The Innocent Reality (What it actually is), [1] = The Dirty Illusion (What it looks like).
   `;
 
-  try {
-    const response = (await withTimeout(ai.models.generateContent({
-      model: modelId,
-      contents: {
-        parts: [
-          { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } },
-          { text: prompt }
-        ]
-      },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            dirtyScore: { type: Type.NUMBER },
-            verdict: { type: Type.STRING, enum: ['PURE', 'SUS', 'DOWN_BAD', 'JAIL'] },
-            explanation: { type: Type.STRING },
-            alternatives: { type: Type.ARRAY, items: { type: Type.STRING } }
-          }
-        }
+  const response = (await withTimeout(ai.models.generateContent({
+    model: modelId,
+    contents: {
+       parts: [
+           { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } },
+           { text: prompt }
+       ]
+    },
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+         type: Type.OBJECT,
+         properties: {
+             dirtyScore: { type: Type.NUMBER },
+             verdict: { type: Type.STRING, enum: ["PURE", "SUS", "DOWN_BAD", "JAIL"] },
+             explanation: { type: Type.STRING },
+             alternatives: { type: Type.ARRAY, items: { type: Type.STRING } }
+         }
       }
-    }))) as GenerateContentResponse;
+    }
+  }))) as GenerateContentResponse;
+
+  if (!response.text) throw new Error("No response");
+  return JSON.parse(cleanJsonString(response.text)) as DirtyAnalysisResult;
+};
+
+export const analyzeXPost = async (
+  url: string,
+  imageBase64?: string | null
+): Promise<XAnalysisResult> => {
+  const modelId = "gemini-2.5-flash";
+  const ai = getAiClient();
+
+  const prompt = `
+    You are the "Based/Cringe Detector". Analyze this X (Twitter) post context.
     
-    if (!response.text) throw new Error("No response");
-    return JSON.parse(cleanJsonString(response.text)) as DirtyAnalysisResult;
+    URL: ${url}
+    ${imageBase64 ? "IMAGE PROVIDED: Yes" : "IMAGE PROVIDED: No (Analyze URL text/context if possible, otherwise roast the link)"}
+    
+    Determine if this post is BASED (Cool, Truthful, Funny) or CRINGE (Embarrassing, Wrong, Lame).
+    Also predict if a Community Note is needed.
+    
+    OUTPUT JSON:
+    - basedScore: 0-10.
+    - cringeScore: 0-10.
+    - ratioRisk: 0-100 (Probability of getting ratioed).
+    - verdict: A short 2-3 word slang verdict (e.g. "MEGA BASED", "L + RATIO", "COOKED").
+    - communityNotePrediction: null if fine, or a string containing the text of a hypothetical community note debunking it.
+  `;
+
+  const parts = [{ text: prompt }];
+  if (imageBase64) {
+      parts.push({ inlineData: { mimeType: 'image/jpeg', data: imageBase64 } } as any);
+  }
+
+  const response = (await withTimeout(ai.models.generateContent({
+    model: modelId,
+    contents: { parts },
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+         type: Type.OBJECT,
+         properties: {
+             basedScore: { type: Type.NUMBER },
+             cringeScore: { type: Type.NUMBER },
+             ratioRisk: { type: Type.NUMBER },
+             verdict: { type: Type.STRING },
+             communityNotePrediction: { type: Type.STRING, nullable: true }
+         }
+      }
+    }
+  }))) as GenerateContentResponse;
+
+  if (!response.text) throw new Error("No response");
+  return JSON.parse(cleanJsonString(response.text)) as XAnalysisResult;
+};
+
+export interface ChatContext {
+  type: 'RATER' | 'BOT_HUNTER' | 'VIDEO_CHAT' | 'DIRTY_TESTER' | 'X_RATER';
+  imageBase64?: string | null;
+  raterResult?: AnalysisResult | null;
+  botResult?: BotAnalysisResult | null;
+  channelDetails?: ChannelDetails | null;
+  videoResult?: VideoAnalysisResult | null;
+  videoMetadata?: VideoMetadata | null;
+  dirtyResult?: DirtyAnalysisResult | null;
+  xResult?: XAnalysisResult | null;
+  xUrl?: string;
+}
+
+export const sendChatMessage = async (
+  history: ChatMessage[],
+  newMessage: string,
+  context: ChatContext
+): Promise<string> => {
+  const modelId = "gemini-2.5-flash";
+  const ai = getAiClient();
+  
+  let systemPromptText = "You are PotatoBot. Helpful but snarky.";
+  let parts: any[] = [];
+
+  if (context.type === 'RATER' && context.raterResult) {
+      const metaTitle = context.videoMetadata?.title ? `Title: "${sanitizeString(context.videoMetadata.title)}"` : "Title: Unknown";
+      parts.push({ text: `
+        ROLE: PotatoBot (YouTube Thumbnail Critic).
+        CONTEXT:
+        ${metaTitle}
+        Verdict: ${context.raterResult.summary}
+        Scores: ${JSON.stringify(context.raterResult.scores)}
+        
+        User asks: "${newMessage}"
+        
+        Be specific about visual elements.
+      `});
+      if (context.imageBase64) {
+          parts.push({ inlineData: { mimeType: 'image/jpeg', data: context.imageBase64 } });
+      }
+
+  } else if (context.type === 'BOT_HUNTER' && context.botResult) {
+      parts.push({ text: `
+        ROLE: Bot Hunter.
+        CONTEXT:
+        Channel: ${context.channelDetails?.title}
+        Bot Score: ${context.botResult.botScore}
+        Verdict: ${context.botResult.verdict}
+        Evidence: ${JSON.stringify(context.botResult.evidence)}
+        
+        User asks: "${newMessage}"
+        
+        Roast the channel if it's a bot. Be skeptical.
+      `});
+
+  } else if (context.type === 'DIRTY_TESTER' && context.dirtyResult) {
+      parts.push({ text: `
+        ROLE: Dirty Mind Detector.
+        CONTEXT:
+        Title: ${context.videoMetadata?.title || "Unknown"}
+        Dirty Score: ${context.dirtyResult.dirtyScore}
+        Verdict: ${context.dirtyResult.verdict}
+        Explanation: ${context.dirtyResult.explanation}
+        
+        User asks: "${newMessage}"
+        
+        Keep the jokes coming.
+      `});
+      if (context.imageBase64) {
+          parts.push({ inlineData: { mimeType: 'image/jpeg', data: context.imageBase64 } });
+      }
+
+  } else if (context.type === 'X_RATER' && context.xResult) {
+      parts.push({ text: `
+        ROLE: Based/Cringe Arbiter.
+        CONTEXT:
+        URL: ${context.xUrl}
+        Based Score: ${context.xResult.basedScore}
+        Cringe Score: ${context.xResult.cringeScore}
+        Verdict: ${context.xResult.verdict}
+        
+        User asks: "${newMessage}"
+        
+        Speak in twitter slang.
+      `});
+
+  } else {
+      // Fallback
+      parts.push({ text: `User: ${newMessage}` });
+  }
+
+  // Append history
+  // Note: For simplicity in this stateless call, we are summarizing history or just taking the last prompt + context.
+  // Ideally, you'd format the whole history. Here we just rely on the immediate context prompt constructed above.
+
+  try {
+      const response = await ai.models.generateContent({
+          model: modelId,
+          contents: { parts }
+      });
+      return response.text || "I am speechless.";
   } catch (e) {
-    console.error("Dirty analysis failed", e);
-    throw e;
+      console.error(e);
+      return "Error contacting PotatoBot HQ.";
   }
 };

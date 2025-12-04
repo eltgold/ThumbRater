@@ -1,4 +1,5 @@
 
+
 export interface ThumbnailScores {
   clarity: number;
   curiosity: number;
@@ -27,6 +28,14 @@ export interface DirtyAnalysisResult {
   verdict: 'PURE' | 'SUS' | 'DOWN_BAD' | 'JAIL';
   explanation: string;
   alternatives: string[]; // Innocent meanings vs Dirty meanings
+}
+
+export interface XAnalysisResult {
+  basedScore: number; // 0-10
+  cringeScore: number; // 0-10
+  ratioRisk: number; // 0-100%
+  verdict: string;
+  communityNotePrediction: string | null;
 }
 
 export interface VideoAnalysisResult {
@@ -63,7 +72,7 @@ export interface ChangelogEntry {
   changes: string[];
 }
 
-export type SavedItemType = 'THUMB_RATER' | 'BOT_HUNTER' | 'VIDEO_CHAT' | 'DIRTY_TESTER';
+export type SavedItemType = 'THUMB_RATER' | 'BOT_HUNTER' | 'VIDEO_CHAT' | 'DIRTY_TESTER' | 'X_RATER';
 
 export interface SavedItem {
   id: string;
@@ -83,6 +92,9 @@ export interface SavedItem {
   // Dirty Tester Data
   dirtyResult?: DirtyAnalysisResult;
   dirtyInput?: string; // Text or Base64
+  // X Rater Data
+  xResult?: XAnalysisResult;
+  xUrl?: string;
 }
 
 export type RiceTubeCategory = 'HOME' | 'TRENDING' | 'GAMING' | 'TECH' | 'MUSIC' | 'SUS';

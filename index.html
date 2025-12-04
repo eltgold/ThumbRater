@@ -2,8 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ricetool - ultimate yt analytics</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#fbbf24" />
+    <title>PotatoTool - Ultimate YT Analytics</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -26,16 +27,16 @@
       /* FORCE COMIC SANS EVERYWHERE */
       * {
         font-family: 'Comic Sans MS', 'Comic Sans', 'Comic Neue', cursive, sans-serif !important;
-        text-transform: lowercase !important;
+        /* text-transform: lowercase !important; REMOVED FOR BETTER READABILITY */
       }
       
       body {
         background-color: #fdfdfd;
         color: #000;
         overflow-x: hidden;
-        height: 100vh;
+        min-height: 100vh;
         width: 100vw;
-        /* Reverted cursor and zoom */
+        touch-action: manipulation; /* Improves touch response */
       }
 
       /* Windows XP Bliss Crying Cat Background */
@@ -49,22 +50,6 @@
       .dark .bg-bliss {
          background-image: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('https://i.imgur.com/Z4ciR8m.jpeg');
       }
-
-      /* Brutalist Scrollbar */
-      ::-webkit-scrollbar {
-        width: 16px;
-      }
-      ::-webkit-scrollbar-track {
-        background: #000; 
-        border-left: 3px solid #000;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #fbbf24; /* Amber 400 */
-        border: 3px solid #000;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #f59e0b; 
-      }
       
       @keyframes slide-up {
         from { transform: translateY(20px); opacity: 0; }
@@ -75,27 +60,44 @@
       }
       
       .hard-shadow {
-        box-shadow: 6px 6px 0px 0px #000;
+        box-shadow: 4px 4px 0px 0px #000;
       }
+      @media (min-width: 768px) {
+        .hard-shadow {
+          box-shadow: 6px 6px 0px 0px #000;
+        }
+      }
+
       .hard-shadow-sm {
-        box-shadow: 3px 3px 0px 0px #000;
+        box-shadow: 2px 2px 0px 0px #000;
       }
+      @media (min-width: 768px) {
+        .hard-shadow-sm {
+           box-shadow: 3px 3px 0px 0px #000;
+        }
+      }
+
       .dark .hard-shadow, .dark .hard-shadow-sm {
-        box-shadow: 6px 6px 0px 0px #fff;
+        box-shadow: 4px 4px 0px 0px #fff;
+      }
+      @media (min-width: 768px) {
+        .dark .hard-shadow, .dark .hard-shadow-sm {
+            box-shadow: 6px 6px 0px 0px #fff;
+        }
       }
     </style>
 <script type="importmap">
 {
   "imports": {
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "clsx": "https://aistudiocdn.com/clsx@^2.1.1",
     "recharts": "https://aistudiocdn.com/recharts@^3.5.1",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
     "vite": "https://aistudiocdn.com/vite@^7.2.6",
-    "clsx": "https://aistudiocdn.com/clsx@^2.1.1"
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1"
   }
 }
 </script>

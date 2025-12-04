@@ -1,7 +1,7 @@
 {
   "name": "ricetool",
   "private": true,
-  "version": "2.24.0",
+  "version": "2.51.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

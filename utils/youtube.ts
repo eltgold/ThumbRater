@@ -4,12 +4,22 @@ import { VideoMetadata, ChannelDetails, SearchResult } from '../types';
 export const extractVideoId = (url: string): string | null => {
   try {
     // Cleaner regex definition to avoid parser issues
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
+    const regExp = new RegExp(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/);
     const match = url.match(regExp);
     return (match && match[2].length === 11) ? match[2] : null;
   } catch (e) {
     return null;
   }
+};
+
+export const extractTweetId = (url: string): string | null => {
+  try {
+    if (url.includes('twitter.com') || url.includes('x.com')) {
+       const match = url.match(/\/status\/(\d+)/);
+       return match ? match[1] : null;
+    }
+    return null;
+  } catch (e) { return null; }
 };
 
 export const extractChannelId = (url: string): string | null => {
@@ -42,13 +52,15 @@ const INVIDIOUS_INSTANCES = [
   'https://inv.tux.pizza',
   'https://invidious.jing.rocks',
   'https://vid.ufficio.eu.org',
-  'https://invidious.nerdvpn.de'
+  'https://invidious.nerdvpn.de',
+  'https://inv.bp.projectsegfau.lt',
+  'https://yt.artemislena.eu'
 ];
 
 const SUS_KEYWORDS = [
-  "nsfw", "18+", "porn", "xxx", "sex", "nude", "naked", "boobs", "ass", 
-  "thicc", "hot girl", "bikini", "lingerie", "onlyfans", "dick", "cock", 
-  "pussy", "hentai", "ahegao", "gore", "death", "murder", "kill", "suicide",
+  "porn", "xxx", "sex", "nude", "naked", "boobs", "ass", 
+  "thicc", "onlyfans", "dick", "cock", 
+  "pussy", "hentai", "ahegao", "gore", "murder", "suicide",
   "strip", "stripper"
 ];
 
@@ -59,9 +71,10 @@ const checkForSus = (text: string): boolean => {
 
 const getApiKey = (): string | null => {
   try {
-    const userKey = localStorage.getItem('ricetool_api_key');
+    const userKey = localStorage.getItem('potatotool_api_key');
     if (userKey) return userKey;
   } catch(e) {}
+  // Only use the fallback if absolutely necessary, user key is prioritized
   return "AIzaSyDVcFhERQvxsfbVsjYZSFqW--Kwj2-PMK8";
 };
 
@@ -204,7 +217,8 @@ export const searchYouTubeVideos = async (query: string, categoryId?: string): P
 
   for (const instance of INVIDIOUS_INSTANCES) {
     try {
-      const response = await fetch(`${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=all`);
+      // Add randomness to page to avoid same results if possible
+      const response = await fetch(`${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=all&sort=relevance`);
       if (response.ok) {
         const data = await response.json();
         if (Array.isArray(data)) {
@@ -230,39 +244,79 @@ export const fetchExploreFeed = async (category: 'HOME' | 'TRENDING' | 'GAMING' 
   let query = '';
   let categoryId = '';
 
+  const pickRandom = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
+
   switch (category) {
       case 'GAMING':
-          query = 'gameplay review walkthrough -shorts';
+          const gamingQueries = [
+              'video game iceberg explained',
+              'retro gaming hardware review',
+              'speedrun history documentary',
+              'indie game hidden gems',
+              'esports documentary',
+              'minecraft technical build tour',
+              'game design analysis essay',
+              'playstation 2 nostalgia'
+          ];
+          query = pickRandom(gamingQueries) + ' -shorts -livestream';
           categoryId = '20'; 
           break;
       case 'TECH':
-          query = 'tech review unboxing gadget -shorts';
+          const techQueries = [
+              'unique pc build time lapse',
+              'mechanical keyboard sound test custom',
+              'vintage computer restoration',
+              'coding project showcase python',
+              'linux rice setup tour',
+              'tech gadget review underrated',
+              'cybersecurity explained for beginners',
+              'arduino robot project'
+          ];
+          query = pickRandom(techQueries) + ' -shorts';
           categoryId = '28'; 
           break;
       case 'MUSIC':
-          query = 'official music video';
+          const musicQueries = [
+              'music production breakdown',
+              'synthesizer jam session',
+              'music theory video essay',
+              'album review needle drop style',
+              'lofi hip hop mix visual',
+              'underground band live performance'
+          ];
+          query = pickRandom(musicQueries) + ' -shorts';
           categoryId = '10'; 
           break;
       case 'TRENDING':
-          query = 'trending viral video now';
+          // Trending is hard to force "quality" on, but we can try
+          query = 'viral video commentary';
           break;
       case 'SUS':
-          // Randomized query to make it deeper/weirder every refresh
           const susQueries = [
               'scary footage caught on camera',
-              'weird youtube videos',
+              'weird youtube videos rabbit hole',
               'liminal spaces compilation',
-              'unsettling videos',
-              'internet mysteries',
+              'unsettling videos lost media',
+              'internet mysteries iceburg',
               'cursed videos playlist',
-              'found footage horror',
-              'strange internet rabbit holes'
+              'found footage horror short',
+              'strange internet websites'
           ];
-          query = susQueries[Math.floor(Math.random() * susQueries.length)];
+          query = pickRandom(susQueries);
           break;
       case 'HOME':
       default:
-          query = 'vlog analysis commentary video essay -vevo -shorts';
+          const homeQueries = [
+              'video essay cinema analysis',
+              'investigative documentary youtube',
+              'internet culture history',
+              'travel vlog cinematic 4k',
+              'street food tour japan',
+              'philosophy video essay',
+              'science experiment explained',
+              'digital art timelapse commentary'
+          ];
+          query = pickRandom(homeQueries) + ' -shorts';
           break;
   }
 
@@ -320,8 +374,9 @@ export const fetchChannelVideos = async (channelId: string, pageToken?: string):
                     }));
                 }
             }
-        } catch (e) { continue; }
+        } catch (e) {
+            continue;
+        }
     }
-
     return [];
-}
+};
